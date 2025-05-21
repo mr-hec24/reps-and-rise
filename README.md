@@ -12,3 +12,4 @@ Here is the stack we will be using throughout this project:
 3. In the command line, run $npx expo start$.
 4. Pull out your phone and scan the QR code
  - This should take you to Download and Open the Expo Go App
+ 5. In the terminal, press 'w' to open the web version of the app too
