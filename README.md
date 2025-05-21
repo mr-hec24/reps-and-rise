@@ -17,6 +17,3 @@ Here is the stack we will be using throughout this project:
  ## Layout of the Repo
  Within this repo, there is another folder \reps-and-rise. This is where most if not all of the code will occur in. 
 
- ```
- 
- ```
