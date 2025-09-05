@@ -1,0 +1,9 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+- Use gluestack-ui (v2)'s components for common UI patterns and layouts.
+- Follow gluestack-ui (v2)'s best practices as per their documentation: https://gluestack.io/ui/docs
+- Use Tailwind css for component styling.
+- Ensure styling consistency between web and native applications.
