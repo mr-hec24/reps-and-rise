@@ -27,7 +27,7 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name='two'
+        name='calendar'
         options={{
           title: 'Calendar',
           tabBarIcon: ({ color }) => <TabBarIcon name='calendar' color={color} />,
@@ -41,9 +41,9 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name='profile'
+        name='settings'
         options={{
-          title: 'Seetings',
+          title: 'Settings',
           tabBarIcon: ({ color }) => <TabBarIcon name='gear' color={color} />,
         }}
       />
