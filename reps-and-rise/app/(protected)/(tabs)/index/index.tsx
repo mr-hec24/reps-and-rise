@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native';
+import { Link } from 'expo-router';
 
 import { Text, View } from '@/components/Themed';
 import { Button, ButtonText } from '@/components/ui/button';
@@ -8,7 +9,8 @@ import { useEffect, useState } from 'react';
 
 
 export default function TabOneScreen() {
-  
+
+
   const {
     profile
   } = useUser();
@@ -35,8 +37,10 @@ export default function TabOneScreen() {
 
       <View style={styles.separator} lightColor='#eee' darkColor='rgba(255,255,255,0.1)' />
       <Button size = 'xl' variant='outline' action='primary'>
-        <ButtonText onPress={exerciseButton}>Start Exercise</ButtonText>
+        <Link href="/exercise_card" style={styles.link}>Open Modal</Link>
       </Button>
+
+      {/* <Link href="/exercise_card" style={styles.link}>Open Modal</Link> */}
 
       <Text style={{ marginTop: 20, fontSize: 16, textAlign: 'center' }}>Have a great session today, you're gonna kill it!</Text>
     </View>
@@ -63,4 +67,5 @@ const styles = StyleSheet.create({
     height: 1,
     width: '80%',
   },
+  
 });
