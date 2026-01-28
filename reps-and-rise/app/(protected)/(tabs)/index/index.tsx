@@ -47,9 +47,6 @@ export default function TabOneScreen() {
   );
 }
 
-const exerciseButton = () => {
-  console.log('Exercise Button Pressed');
-}
 
 
 const styles = StyleSheet.create({
