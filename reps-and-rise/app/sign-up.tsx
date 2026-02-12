@@ -12,7 +12,7 @@ import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useAuth } from '@/context/auth-provider';
 import { useState } from 'react';
-import { SafeAreaView } from 'react-native';
+import { Keyboard, SafeAreaView, TouchableWithoutFeedback } from 'react-native';
 
 export default function SignUp() {
   const { signUp } = useAuth();
@@ -96,6 +96,7 @@ export default function SignUp() {
 
   return (
     <SafeAreaView className='flex h-full w-full flex-1 bg-background'>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <VStack space='xl' className='h-full w-full justify-center p-6'>
         <VStack space='md' className='w-full items-center'>
           <Heading size='2xl'>Sign Up</Heading>
@@ -239,6 +240,7 @@ export default function SignUp() {
           </Button>
         </VStack>
       </VStack>
+      </TouchableWithoutFeedback>
     </SafeAreaView>
   );
 }
