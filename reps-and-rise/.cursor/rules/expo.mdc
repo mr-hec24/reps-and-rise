@@ -1,0 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+- Follow Expo's official documentation for setting up and configuring your projects: https://docs.expo.dev
+- Ensure that you follow expo best practices. 
+- Ensure compatibility with iOS, Android and Web platforms.

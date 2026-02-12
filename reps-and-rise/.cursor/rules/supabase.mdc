@@ -1,0 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+- Use supabase for backend services, including authentication and database interactions.
+- Follow supabase guidelines for security and performance.
+- Use Zod schemas to validate data exchanged with the backend.
