@@ -48,6 +48,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <TabBarIcon name='gear' color={color} />,
         }}
       />
+      {/* Hide everything that is NOT a tab */}
     </Tabs>
   );
 }
