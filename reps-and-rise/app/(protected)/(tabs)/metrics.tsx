@@ -1,0 +1,96 @@
+import { View, Text, StyleSheet } from 'react-native';
+import { theme } from '@/theme';
+import { Card } from '@/components/Card';
+import { SectionHeader } from '@/components/SectionHeader';
+import { LinearGradient } from 'expo-linear-gradient';
+
+export default function TabOneScreen() {
+
+  return (
+    <View style={styles.container}>
+      <SectionHeader title='Your Metrics' />
+      
+            
+        
+        <LinearGradient colors={[theme.colors.secondary, theme.colors.primary]} start={{x:0, y:0}} end={{x:1, y:1}}style={styles.bigCard}>
+            <Text style={styles.bigNumber}>+10%</Text>
+            <Text style={styles.subtitle}>Strength</Text>
+            <Text style={styles.description}>Amazing progress this month. Keep pushing forward</Text>
+        </LinearGradient>
+        
+
+      <Card style={styles.tinyCard}>
+        <Text style={styles.subtext}>Strength</Text>
+        <Text style={styles.value}>+10%</Text>
+        <Text style={styles.subtext}>Compared to last month</Text>  
+      </Card>
+
+      <Card style={styles.tinyCard}>
+        <Text style={styles.subtext}>Workout Streak</Text>
+        <Text style={styles.value}>5 Days</Text>
+        <Text style={styles.subtext}>Keep it up!</Text>  
+      </Card>
+
+      <Card style={styles.tinyCard}>
+        <Text style={styles.subtext}>Weekly Goal</Text>
+        <Text style={styles.value}>82%</Text>
+        <Text style={styles.subtext}>Great progress!</Text>  
+      </Card>
+
+    </View>
+  );
+}
+
+
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: theme.spacing.lg,
+    justifyContent: 'center',
+  },
+  bigNumber: {
+    fontSize: 48,
+    fontWeight: "700",
+    color: theme.colors.border,
+  },
+  bigCard: {
+    padding: theme.spacing.xl,
+    backgroundColor: theme.colors.primary,
+        padding: theme.spacing.lg,
+        borderRadius: theme.radius.lg,
+        marginBottom: theme.spacing.md
+  },
+  subtitle: {
+    fontSize: theme.font.subtitle,
+    marginTop: theme.spacing.sm,
+    color: theme.colors.background,
+  },
+    description: {
+      color: theme.colors.border,
+      marginTop: theme.spacing.sm,
+    },
+    label: {
+        fontSize: theme.font.subtitle,
+        fontWeight: 600,
+    },
+    value: {
+        fontSize: theme.font.subtitle,
+        fontWeight: 700,
+        marginTop: theme.spacing.xs,
+    },
+    subtext: {
+        color: theme.colors.subtext,
+        marginTop: theme.spacing.xs,
+    },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  separator: {
+    marginVertical: 30,
+    height: 1,
+    width: '80%',
+  },
+  
+});
