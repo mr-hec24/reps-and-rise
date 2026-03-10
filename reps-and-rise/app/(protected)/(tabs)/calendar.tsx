@@ -1,5 +1,8 @@
-import { StyleSheet, SectionList, TouchableOpacity, Touchable } from 'react-native';
-import { Text, View } from '@/components/Themed';
+import { StyleSheet, View, Text, SectionList, TouchableOpacity} from 'react-native';
+import { theme } from '@/theme';
+import { Card } from '@/components/Card';
+import { SectionHeader } from '@/components/SectionHeader';
+
 import { useWorkoutStore } from '@/store/globalStore';
 import { useEffect , useState} from 'react';
 import dayjs from 'dayjs';
@@ -33,41 +36,41 @@ export default function TabTwoScreen() {
         data: items,
       }));
 
-      const toggle = (title) => {
-        setOpenSections((prev) => ({
-          ...prev,
-          [title]: !prev[title],
-        }));
-      }
+    const toggle = (title) => {
+      setOpenSections((prev) => ({
+        ...prev,
+        [title]: !prev[title],
+      }));
+    }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Exercise History</Text>
-      <View style={styles.separator} lightColor='#eee' darkColor='rgba(255,255,255,0.1)' />
+      <SectionHeader title="Exercise History"/>
       
       <SectionList 
           sections={sections}
           keyExtractor={(item) => item.id}
           renderSectionHeader={({ section }) => (
             <TouchableOpacity onPress={() => toggle(section.title)}>
-              <Text style={{ fontSize: 18, fontWeight: 'bold', backgroundColor: '#f0f0f0', padding: 10 }}>
+              {/* <Text style={{ fontSize: 18, fontWeight: 'bold', backgroundColor: '#f0f0f0', padding: 10 }}>
                 {section.title}
-              </Text>
+              </Text> */}
+              <SectionHeader title={section.title} />
             </TouchableOpacity>
           )}
           renderItem={({ item, section }) => 
             openSections[section.title] ? (
-              <View>
-              <Text>{item.activities?.activity_name || 'Unknown Activity'} - Set: {item.set || 0} | Reps: {item.reps || 0} </Text>
-              <TouchableOpacity onPress={() => 
-                router.push({
-                  pathname: '/editWorkout',
-                  params: { workout: JSON.stringify(item) }
-                })
-              }>
-                <Text style={{ color: 'blue' }}>Edit</Text>
-              </TouchableOpacity> 
-              </View>
+              <Card style={styles.card} key={item.date}>
+                <Text style={styles.exercise}>{item.activities?.activity_name || 'Unknown Activity'} - Set: {item.set || 0} | Reps: {item.reps || 0} </Text>
+                <TouchableOpacity onPress={() => 
+                  router.push({
+                    pathname: '/editWorkout',
+                    params: { workout: JSON.stringify(item) }
+                  })
+                }>
+                  <Text style={{ color: 'blue' }}>Edit</Text>
+                </TouchableOpacity> 
+              </Card>
             ) : null
           }
       />
@@ -78,10 +81,9 @@ export default function TabTwoScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
+    padding: theme.spacing.lg,
     justifyContent: 'center',
-    padding: 20,
-    paddingTop: 100
+    marginTop: 50,
   },
   title: {
     fontSize: 20,
@@ -94,5 +96,12 @@ const styles = StyleSheet.create({
   },
   listSection: {
     padding: 20
+  },
+  card: {
+
+  },
+  exercise: {
+    color: theme.colors.subtext,
+    marginBottom: theme.spacing.xs
   }
 });

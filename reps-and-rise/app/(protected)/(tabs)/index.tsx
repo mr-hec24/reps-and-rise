@@ -11,6 +11,7 @@ import { theme } from '@/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
+import { SectionHeader } from '@/components/SectionHeader';
 
 export default function TabOneScreen() {
 
@@ -32,7 +33,7 @@ export default function TabOneScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Today is {new Date().toLocaleDateString()}</Text>
+      <SectionHeader title={`Today is ${new Date().toLocaleDateString()}`} />
       <Text style={styles.subtitle}>Ready to crush your workout?</Text>
 
       <TouchableOpacity onPress={() => router.push({pathname: '/exercise_card'})}>

@@ -48,6 +48,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: theme.spacing.lg,
     justifyContent: 'center',
+    marginTop: 50,
   },
   bigNumber: {
     fontSize: 48,
@@ -57,7 +58,6 @@ const styles = StyleSheet.create({
   bigCard: {
     padding: theme.spacing.xl,
     backgroundColor: theme.colors.primary,
-        padding: theme.spacing.lg,
         borderRadius: theme.radius.lg,
         marginBottom: theme.spacing.md
   },
