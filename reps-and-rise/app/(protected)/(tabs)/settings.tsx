@@ -5,8 +5,9 @@ import { useUser } from '@/context/user-provider';
 import { pickImage } from '@/lib/image-upload';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { theme } from '@/theme';
+import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View, SafeAreaView } from 'react-native';
+import { VStack } from '@/components/ui/vstack';
+import { useThemeMode } from '@/theme/ThemeContext';
 import { SectionHeader } from '@/components/SectionHeader';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -24,6 +25,8 @@ export default function ProfileScreen() {
     uploadAvatarImage,
     refreshProfile,
   } = useUser();
+  const { theme, toggleTheme } = useThemeMode();
+  const dynamicStyles = styles(theme);
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -105,10 +108,10 @@ export default function ProfileScreen() {
       "Privacy & Security",
       "Appearance",
     ],
-    support: ["Send Feedback"],
+    support: ["Buy Me a Coffee", "Send Feedback"],
   }
 
-  const openSelectedSetting = (setting) => {
+  const openSelectedSetting = (setting: string) => {
     setSelectedSetting(setting); 
     switch (setting) {
       case "Profile Settings":
@@ -121,10 +124,13 @@ export default function ProfileScreen() {
         router.push('/privacy_security_setting');
         break;    
       case "Appearance":
-        // Navigate to appearance settings screen
+        toggleTheme();
         break;
       case "Send Feedback": 
         router.push('/send_feedback');
+        break;
+      case "Buy Me a Coffee":
+        router.push('/buy_me_a_coffee' as never);
         break;
       default:
         break;
@@ -132,71 +138,78 @@ export default function ProfileScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={dynamicStyles.safeArea}>
+      <View style={dynamicStyles.container}>
       <SectionHeader title="Settings" />
-      <LinearGradient colors={[theme.colors.secondary, theme.colors.primary]} start={{x:0, y:0}} end={{x:1, y:1}}style={styles.profileCard}><Avatar size='2xl'>
+      <LinearGradient colors={[theme.colors.secondary, theme.colors.primary]} start={{x:0, y:0}} end={{x:1, y:1}} style={dynamicStyles.profileCard}><Avatar size='2xl'>
         <AvatarFallbackText>{getInitials()}</AvatarFallbackText>
           {getAvatarSource() && <AvatarImage source={getAvatarSource()} />}  
         </Avatar>
-        <View>
-          <Text style={styles.profileTitle}>Hello, {getDisplayName()}!</Text>
-          <Text style={styles.profileSubtitle}>Member since 2024</Text>
+        <View style={{ flex: 1, maxWidth: 145}}>
+          <Text style={dynamicStyles.profileTitle}>Hello, {getDisplayName()}!</Text>
+          <Text style={dynamicStyles.profileSubtitle}>Member since 2024</Text>
         </View>
       </LinearGradient>
         
       <SectionHeader title="Account" />
       {settings.account.map((setting) => (
-        <TouchableOpacity key={setting} style={styles.row} onPress={() => openSelectedSetting(setting)}>
-          <Text style={styles.rowText}>{setting}</Text>
+        <TouchableOpacity activeOpacity={1} key={setting} style={dynamicStyles.row} onPress={() => openSelectedSetting(setting)}>
+          <Text style={dynamicStyles.rowText}>{setting}</Text>
         </TouchableOpacity>
       ))}
 
       <SectionHeader title="Support" />
       {settings.support.map((setting) => (
-        <TouchableOpacity key={setting} style={styles.row} onPress={() => openSelectedSetting(setting)}>
-          <Text style={styles.rowText}>{setting}</Text>
+        <TouchableOpacity key={setting} style={dynamicStyles.row} onPress={() => openSelectedSetting(setting)}>
+          <Text style={dynamicStyles.rowText}>{setting}</Text>
         </TouchableOpacity>
       ))}
-    </View> 
+    </View>
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: theme.spacing.lg,
-    justifyContent: 'center',
-    marginTop: 50,
-  },
-  title: {
-    fontSize: theme.font.title,
-    fontWeight: "700",
-    marginBottom: theme.spacing.sm,
-  },
-  profileCard: {
-    padding: theme.spacing.xl,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.radius.lg,
-    marginBottom: theme.spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.lg
-  },
-  profileTitle: {
-    fontSize: theme.font.subtitle,
-    fontWeight: "700",
-    color: theme.colors.background,
-  },
-  profileSubtitle: {
-    color: theme.colors.background,
-  },
-  row: {
-    paddingVertical: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  rowText: {
-    fontSize: theme.font.body,
-  }
-
-});
+const styles = (theme: any) => StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    container: {
+      flex: 1,
+      padding: theme.spacing.lg,
+      justifyContent: 'center',
+      paddingTop: theme.spacing.xl,
+      backgroundColor: theme.colors.background,
+    },
+    title: {
+      fontSize: theme.font.title,
+      fontWeight: "700",
+      marginBottom: theme.spacing.sm,
+    },
+    profileCard: {
+      padding: theme.spacing.xl,
+      backgroundColor: theme.colors.primary,
+      borderRadius: theme.radius.lg,
+      marginBottom: theme.spacing.md,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: theme.spacing.lg
+    },
+    profileTitle: {
+      fontSize: theme.font.subtitle,
+      fontWeight: "700",
+      color: theme.colors.background,
+    },
+    profileSubtitle: {
+      color: theme.colors.background,
+    },
+    row: {
+      paddingVertical: theme.spacing.md,
+      borderBottomWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    rowText: {
+      fontSize: theme.font.body,
+      color: theme.colors.text,
+    }
+  });
