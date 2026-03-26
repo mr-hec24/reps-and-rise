@@ -1,4 +1,4 @@
-import { StyleSheet, TouchableOpacity } from 'react-native';
+import { SafeAreaView, StyleSheet, TouchableOpacity } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 
 import { Text, View } from '@/components/Themed';
@@ -7,12 +7,17 @@ import { Button, ButtonIcon, ButtonText } from '@/components/ui/button';
 import { useUser } from '@/context/user-provider';
 import { useEffect, useState } from 'react';
 import { Card } from '@/components/Card';
-import { theme } from '@/theme';
+import { useThemeMode } from '@/theme/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
+import { SectionHeader } from '@/components/SectionHeader';
+import { Row } from '@/components/Row';
+import { formatDate } from '@/utils/dateUtils';
 
 export default function TabOneScreen() {
+  const { theme } = useThemeMode();
+  const styles = getStyles(theme);
 
   const {
     profile
@@ -31,11 +36,13 @@ export default function TabOneScreen() {
 
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Today is {new Date().toLocaleDateString()}</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+      {/* <SectionHeader title={`Today is ${new Date().toLocaleDateString()}`} /> */}
+        <SectionHeader title={`Today is ${formatDate(new Date())}`} />
       <Text style={styles.subtitle}>Ready to crush your workout?</Text>
 
-      <TouchableOpacity onPress={() => router.push({pathname: '/exercise_card'})}>
+      <TouchableOpacity onPress={() => router.push({pathname: '/exercise-input'})}>
         <LinearGradient colors={[theme.colors.secondary, theme.colors.primary]} start={{x:0, y:0}} end={{x:1, y:1}} style={styles.startButton}>
           <Image 
             style={styles.image}
@@ -49,7 +56,7 @@ export default function TabOneScreen() {
 
       {/* <View style={styles.separator} lightColor='#eee' darkColor='rgba(255,255,255,0.1)' /> */}
       
-      <View style={{ flexDirection: 'row', justifyContent: 'center', width: '100%' }}>
+      <Row style={{ flexDirection: 'row', justifyContent: 'center', width: '100%' }}>
         <Card style={styles.statCard}>
           <Text style={styles.statValue}>12</Text>
           <Text style={styles.statLabel}>This Week</Text>
@@ -62,15 +69,20 @@ export default function TabOneScreen() {
           <Text style={styles.statValue}>82%</Text>
           <Text style={styles.statLabel}>Goal</Text>
         </Card>
-      </View>
+      </Row>
 
     </View>
+    </SafeAreaView>
   );
 }
 
 
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   container: {
     flex: 1,
     padding: theme.spacing.lg,
@@ -110,6 +122,8 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: theme.spacing.xs,
     alignItems: 'center',
+    justifyContent: 'center',
+    height: 110,
   },
   statValue: {
     fontSize: theme.font.subtitle,

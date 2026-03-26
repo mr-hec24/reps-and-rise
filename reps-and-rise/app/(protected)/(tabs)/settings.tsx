@@ -1,17 +1,17 @@
-import { Avatar, AvatarBadge, AvatarFallbackText, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallbackText, AvatarImage } from '@/components/ui/avatar';
 import { Button, ButtonText } from '@/components/ui/button';
-import { FormControl, FormControlLabel, FormControlLabelText } from '@/components/ui/form-control';
-import { Heading } from '@/components/ui/heading';
-import { Input, InputField } from '@/components/ui/input';
-import { Text } from '@/components/ui/text';
-import { VStack } from '@/components/ui/vstack';
 import { useAuth } from '@/context/auth-provider';
 import { useUser } from '@/context/user-provider';
 import { pickImage } from '@/lib/image-upload';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, SafeAreaView, TouchableOpacity } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View, SafeAreaView } from 'react-native';
+import { VStack } from '@/components/ui/vstack';
+import { useThemeMode } from '@/theme/ThemeContext';
+import { SectionHeader } from '@/components/SectionHeader';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
+
 
 export default function ProfileScreen() {
   const { signOut } = useAuth();
@@ -25,6 +25,8 @@ export default function ProfileScreen() {
     uploadAvatarImage,
     refreshProfile,
   } = useUser();
+  const { theme, toggleTheme } = useThemeMode();
+  const dynamicStyles = styles(theme);
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -32,6 +34,8 @@ export default function ProfileScreen() {
   const [hasChanges, setHasChanges] = useState(false);
 
   const [selectedSetting, setSelectedSetting] = useState('none');
+
+
   // Load profile data into form when available
   useEffect(() => {
     if (profile) {
@@ -48,63 +52,6 @@ export default function ProfileScreen() {
       setHasChanges(firstName !== currentFirstName || lastName !== currentLastName);
     }
   }, [firstName, lastName, profile]);
-
-  const handleSignOut = async () => {
-    if (isSigningOut) return;
-
-    setIsSigningOut(true);
-    try {
-      await signOut();
-      // No need to handle success here - the auth provider will redirect
-    } catch (error) {
-      console.error('Unexpected error during sign out:', error);
-      // Even if there's an error, the signOut function should handle it gracefully
-    } finally {
-      setIsSigningOut(false);
-    }
-  };
-
-  const handleSaveProfile = async () => {
-    if (!hasChanges) {
-      Alert.alert('No Changes', 'No changes to save.');
-      return;
-    }
-
-    try {
-      await updateProfile({
-        first_name: firstName.trim() || null,
-        last_name: lastName.trim() || null,
-      });
-      Alert.alert('Success', 'Profile updated successfully!');
-    } catch (error) {
-      console.error('Error saving profile:', error);
-      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to save profile');
-    }
-  };
-
-  const handleAvatarUpload = async () => {
-    if (isUploadingAvatar) return;
-
-    try {
-      const result = await pickImage();
-
-      if (!result || result.canceled || !result.assets || result.assets.length === 0) {
-        return; // User cancelled or no image selected
-      }
-
-      const imageUri = result.assets[0].uri;
-      const uploadResult = await uploadAvatarImage(imageUri);
-
-      if (uploadResult.success) {
-        Alert.alert('Success', 'Profile picture updated successfully!');
-      } else {
-        Alert.alert('Error', uploadResult.error || 'Failed to upload image');
-      }
-    } catch (error) {
-      console.error('Error uploading avatar:', error);
-      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to upload image');
-    }
-  };
 
   const getDisplayName = () => {
     if (profile?.first_name || profile?.last_name) {
@@ -123,7 +70,6 @@ export default function ProfileScreen() {
       .slice(0, 2);
   };
 
-  const CameraIcon = () => <FontAwesome size={16} name='camera' color='white' />;
 
   const getAvatarSource = () => {
     if (profile?.avatar_url) {
@@ -155,133 +101,115 @@ export default function ProfileScreen() {
     );
   }
 
+  const settings = {
+    account: [
+      "Profile Settings",
+      "Notifications",
+      "Privacy & Security",
+      "Appearance",
+    ],
+    support: ["Buy Me a Coffee", "Send Feedback"],
+  }
+
+  const openSelectedSetting = (setting: string) => {
+    setSelectedSetting(setting); 
+    switch (setting) {
+      case "Profile Settings":
+        router.push("/profile_settings");
+        break;
+      case "Notifications":
+        router.push('/notification_settings')
+        break;  
+      case "Privacy & Security":
+        router.push('/privacy_security_setting');
+        break;    
+      case "Appearance":
+        toggleTheme();
+        break;
+      case "Send Feedback": 
+        router.push('/send_feedback');
+        break;
+      case "Buy Me a Coffee":
+        router.push('/buy_me_a_coffee' as never);
+        break;
+      default:
+        break;
+     }
+  }
+
   return (
-    <SafeAreaView className='flex h-full w-full flex-1 bg-background'>
-        <VStack space='xl' className='h-full w-full justify-start p-6 pt-12'>
-          <VStack space='md' className='w-full items-center'>
-            <Heading size='2xl'>Profile</Heading>
-            <Text className='text-center'>Manage your account information</Text>
-          </VStack>
+    <SafeAreaView style={dynamicStyles.safeArea}>
+      <View style={dynamicStyles.container}>
+      <SectionHeader title="Settings" />
+      <LinearGradient colors={[theme.colors.secondary, theme.colors.primary]} start={{x:0, y:0}} end={{x:1, y:1}} style={dynamicStyles.profileCard}><Avatar size='2xl'>
+        <AvatarFallbackText>{getInitials()}</AvatarFallbackText>
+          {getAvatarSource() && <AvatarImage source={getAvatarSource()} />}  
+        </Avatar>
+        <View style={{ flex: 1, maxWidth: 145}}>
+          <Text style={dynamicStyles.profileTitle}>Hello, {getDisplayName()}!</Text>
+          <Text style={dynamicStyles.profileSubtitle}>Member since 2024</Text>
+        </View>
+      </LinearGradient>
+        
+      <SectionHeader title="Account" />
+      {settings.account.map((setting) => (
+        <TouchableOpacity activeOpacity={1} key={setting} style={dynamicStyles.row} onPress={() => openSelectedSetting(setting)}>
+          <Text style={dynamicStyles.rowText}>{setting}</Text>
+        </TouchableOpacity>
+      ))}
 
-          {/* User Avatar */}
-          <VStack space='md' className='w-full items-center'>
-            <TouchableOpacity
-              onPress={handleAvatarUpload}
-              disabled={isUploadingAvatar}
-              activeOpacity={0.7}
-            >
-              <Avatar size='2xl'>
-                <AvatarFallbackText>{getInitials()}</AvatarFallbackText>
-                {getAvatarSource() && <AvatarImage source={getAvatarSource()} />}
-                <AvatarBadge className='bg-primary-500 items-center justify-center'>
-                  {isUploadingAvatar ? (
-                    <ActivityIndicator size='small' color='white' />
-                  ) : (
-                    <CameraIcon />
-                  )}
-                </AvatarBadge>
-              </Avatar>
-            </TouchableOpacity>
-            <Text className='text-sm text-gray-500 text-center'>
-              Tap to {profile?.avatar_url ? 'change' : 'upload'} profile picture
-            </Text>
-          </VStack>
-
-          {/* Profile Inputs */}
-          <VStack space='lg' className='w-full'>
-            <FormControl
-              size='md'
-              isDisabled={isUpdating || isUploadingAvatar}
-              isReadOnly={false}
-              isRequired={false}
-              className='w-full'
-            >
-              <FormControlLabel>
-                <FormControlLabelText>First Name</FormControlLabelText>
-              </FormControlLabel>
-              <Input className='w-full' size='md' variant='outline'>
-                <InputField
-                  type='text'
-                  placeholder='Enter your first name'
-                  value={firstName}
-                  onChangeText={text => setFirstName(text)}
-                  className='w-full'
-                />
-              </Input>
-            </FormControl>
-
-            <FormControl
-              size='md'
-              isDisabled={isUpdating || isUploadingAvatar}
-              isReadOnly={false}
-              isRequired={false}
-              className='w-full'
-            >
-              <FormControlLabel>
-                <FormControlLabelText>Last Name</FormControlLabelText>
-              </FormControlLabel>
-              <Input className='w-full' size='md' variant='outline'>
-                <InputField
-                  type='text'
-                  placeholder='Enter your last name'
-                  value={lastName}
-                  onChangeText={text => setLastName(text)}
-                  className='w-full'
-                />
-              </Input>
-            </FormControl>
-
-            <FormControl
-              size='md'
-              isDisabled={true}
-              isReadOnly={true}
-              isRequired={false}
-              className='w-full'
-            >
-              <FormControlLabel>
-                <FormControlLabelText>Email</FormControlLabelText>
-              </FormControlLabel>
-              <Input className='w-full' size='md' variant='outline'>
-                <InputField
-                  type='text'
-                  placeholder='Email address'
-                  value={profile?.email || ''}
-                  className='w-full'
-                  keyboardType='email-address'
-                  autoCapitalize='none'
-                  editable={false}
-                />
-              </Input>
-            </FormControl>
-          </VStack>
-
-          {/* Action Buttons */}
-          <VStack space='md' className='w-full mt-auto'>
-            <Button
-              size='lg'
-              variant='solid'
-              action='primary'
-              className='w-full'
-              onPress={handleSaveProfile}
-              isDisabled={!hasChanges || isUpdating || isUploadingAvatar}
-            >
-              <ButtonText>
-                {isUpdating ? 'Saving...' : hasChanges ? 'Save Changes' : 'No Changes'}
-              </ButtonText>
-            </Button>
-
-            <Button
-              size='lg'
-              variant='outline'
-              action='secondary'
-              className='w-full'
-              onPress={handleSignOut}
-              isDisabled={isSigningOut || isUpdating || isUploadingAvatar}
-            >
-              <ButtonText>{isSigningOut ? 'Signing Out...' : 'Sign Out'}</ButtonText>
-            </Button>
-          </VStack>
-        </VStack>
+      <SectionHeader title="Support" />
+      {settings.support.map((setting) => (
+        <TouchableOpacity key={setting} style={dynamicStyles.row} onPress={() => openSelectedSetting(setting)}>
+          <Text style={dynamicStyles.rowText}>{setting}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
     </SafeAreaView>
   );
 }
+
+const styles = (theme: any) => StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    container: {
+      flex: 1,
+      padding: theme.spacing.lg,
+      justifyContent: 'center',
+      paddingTop: theme.spacing.xl,
+      backgroundColor: theme.colors.background,
+    },
+    title: {
+      fontSize: theme.font.title,
+      fontWeight: "700",
+      marginBottom: theme.spacing.sm,
+    },
+    profileCard: {
+      padding: theme.spacing.xl,
+      backgroundColor: theme.colors.primary,
+      borderRadius: theme.radius.lg,
+      marginBottom: theme.spacing.md,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: theme.spacing.lg
+    },
+    profileTitle: {
+      fontSize: theme.font.subtitle,
+      fontWeight: "700",
+      color: theme.colors.background,
+    },
+    profileSubtitle: {
+      color: theme.colors.background,
+    },
+    row: {
+      paddingVertical: theme.spacing.md,
+      borderBottomWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    rowText: {
+      fontSize: theme.font.body,
+      color: theme.colors.text,
+    }
+  });

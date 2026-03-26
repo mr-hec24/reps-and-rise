@@ -1,16 +1,21 @@
 import { GluestackUIProvider } from '@/components/ui/gluestack-ui-provider';
 import '@/global.css';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
+import { DarkTheme, DefaultTheme } from '@/theme/DarkTheme';
+import { StatusBar } from 'expo-status-bar';
+import { useThemeMode } from '@/theme/ThemeContext';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider } from '@/context/auth-provider';
 import { UserProvider } from '@/context/user-provider';
+import { ActivityProvider } from '@/context/activity-provider';
+import { ThemeProvider } from '@/theme/ThemeContext';
+import * as Notifications from "expo-notifications"
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -42,27 +47,39 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
+  useEffect(() => {
+    Notifications.setNotificationChannelAsync('default', {
+      name: 'default',
+      importance: Notifications.AndroidImportance.HIGH,
+    });
+  }, []);
+
   if (!loaded) {
     return null;
   }
 
   return (
-    <GluestackUIProvider mode='light'>
-      <AuthProvider>
-        <UserProvider>
-          <RootLayoutNav />
-        </UserProvider>
-      </AuthProvider>
+    <GluestackUIProvider>
+      <ThemeProvider>
+        <ActivityProvider>
+          <AuthProvider>
+            <UserProvider>
+              <RootLayoutNav />
+            </UserProvider>
+          </AuthProvider>
+        </ActivityProvider>
+      </ThemeProvider>
     </GluestackUIProvider>
   );
 }
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
+  const { theme, mode } = useThemeMode();
 
   return (
-    <GluestackUIProvider mode='light'>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <GluestackUIProvider>
+      <StatusBar style={mode === 'dark' ? 'light' : 'dark'} backgroundColor={theme.colors.background} />
         <Stack screenOptions={{ headerShown: false, gestureEnabled: false }}>
           <Stack.Screen name='(protected)' />
           <Stack.Screen name='welcome' />
@@ -101,7 +118,6 @@ function RootLayoutNav() {
             }}
           />
         </Stack>
-      </ThemeProvider>
     </GluestackUIProvider>
   );
 }

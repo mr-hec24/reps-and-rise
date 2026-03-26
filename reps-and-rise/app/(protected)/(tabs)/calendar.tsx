@@ -1,13 +1,29 @@
-import { StyleSheet, SectionList, TouchableOpacity, Touchable } from 'react-native';
-import { Text, View } from '@/components/Themed';
+import { StyleSheet, SafeAreaView, View, Text, SectionList, TouchableOpacity} from 'react-native';
+import { useThemeMode } from '@/theme/ThemeContext';
+import { Card } from '@/components/Card';
+import { SectionHeader } from '@/components/SectionHeader';
+
 import { useWorkoutStore } from '@/store/globalStore';
-import { useEffect , useState} from 'react';
+import { useEffect } from 'react';
 import dayjs from 'dayjs';
 import { Link, router } from 'expo-router';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import React from 'react';
+import { Row } from '@/components/Row';
+import { formatDate } from '@/utils/dateUtils';
+
+function Icon(props: {
+  name: React.ComponentProps<typeof FontAwesome>['name'];
+  color: string;
+}) {
+  const { theme } = useThemeMode();
+  const dynamicStyles = styles(theme);
+  return <FontAwesome size={28} style={dynamicStyles.icon} {...props} />;
+}
 
 export default function TabTwoScreen() {
+  const { theme } = useThemeMode();
 
-    const [openSections, setOpenSections] = useState({});
     const loading = useWorkoutStore((state) => state.loading);
     const fetchWorkouts = useWorkoutStore((state) => state.fetchWorkouts);
     const workouts = useWorkoutStore((state) => state.workouts);
@@ -29,59 +45,70 @@ export default function TabTwoScreen() {
     const sections = Object.entries(grouped)
       .sort((a, b) => new Date(b[0]) - new Date(a[0])) // sort by date key
       .map(([date, items]) => ({
-        title: dayjs(date).format("MM-DD-YYYY"),
+         title: formatDate(date),
         data: items,
       }));
 
-      const toggle = (title) => {
-        setOpenSections((prev) => ({
-          ...prev,
-          [title]: !prev[title],
-        }));
-      }
+  const dynamicStyles = styles(theme);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Exercise History</Text>
-      <View style={styles.separator} lightColor='#eee' darkColor='rgba(255,255,255,0.1)' />
+    <SafeAreaView style={dynamicStyles.safeArea}>
+      <View style={dynamicStyles.container}>
+      <Row style={dynamicStyles.header}>
+        <SectionHeader title="Exercise History"/>
+
+        <TouchableOpacity
+          style={dynamicStyles.addWorkoutButton}
+          onPress={() => router.push('/exercise-input')}
+        >
+          <FontAwesome name="plus" size={24} color="white" />
+
+        </TouchableOpacity>
+      </Row>
       
       <SectionList 
           sections={sections}
           keyExtractor={(item) => item.id}
-          renderSectionHeader={({ section }) => (
-            <TouchableOpacity onPress={() => toggle(section.title)}>
-              <Text style={{ fontSize: 18, fontWeight: 'bold', backgroundColor: '#f0f0f0', padding: 10 }}>
-                {section.title}
-              </Text>
-            </TouchableOpacity>
-          )}
-          renderItem={({ item, section }) => 
-            openSections[section.title] ? (
-              <View>
-              <Text>{item.activities?.activity_name || 'Unknown Activity'} - Set: {item.set || 0} | Reps: {item.reps || 0} </Text>
-              <TouchableOpacity onPress={() => 
-                router.push({
-                  pathname: '/editWorkout',
-                  params: { workout: JSON.stringify(item) }
-                })
-              }>
-                <Text style={{ color: 'blue' }}>Edit</Text>
-              </TouchableOpacity> 
-              </View>
-            ) : null
-          }
+          renderSectionHeader={({ section }) => {
+            return (
+            <Card style={dynamicStyles.card}>
+              <TouchableOpacity onPress={() => router.push({
+                pathname: '/day-workout-view',
+                params: {
+                  date: section.title,
+                  workouts: JSON.stringify(section.data)
+                }
+              })}>
+                <Row style={dynamicStyles.row}>
+                  <Icon name='calendar' color={theme.colors.primary} />
+                  <Text style={dynamicStyles.sectionTitle} >{section.title}</Text>
+                </Row>
+              </TouchableOpacity>
+            </Card>
+            
+          )}}
+          renderItem={({ item, section }) => null}
       />
     </View>
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = (theme) => StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   container: {
     flex: 1,
-    alignItems: 'center',
+    paddingTop: theme.spacing.lg,
+    paddingLeft: theme.spacing.md,
+    paddingRight: theme.spacing.md,
     justifyContent: 'center',
-    padding: 20,
-    paddingTop: 100
+    backgroundColor: theme.colors.background,
+  },
+  header: {
+    paddingBottom: theme.spacing.xs,
   },
   title: {
     fontSize: 20,
@@ -92,7 +119,58 @@ const styles = StyleSheet.create({
     height: 1,
     width: '80%',
   },
-  listSection: {
-    padding: 20
+  
+  card: {
+
+  },
+  link: {
+    color: theme.colors.primary
+  },
+  sectionTitle: {
+    fontSize: theme.font.title,
+    fontWeight: 600,
+    color: theme.colors.text
+  },
+  sectionInfo: {
+    paddingTop: theme.spacing.lg,
+    paddingLeft: theme.spacing.xs,
+    paddingRight: theme.spacing.xs,
+    paddingBottom: theme.spacing.xs,
+
+  },
+  exerciseCard: {
+    margin: theme.spacing.xs,
+    backgroundColor: '#FAFAF8'
+  },
+  row: {
+    alignContent: 'center',
+    justifyContent: 'flex-start',
+    columnGap: theme.spacing.sm
+  },
+  exercise: {
+    color: theme.colors.subtext,
+    marginBottom: theme.spacing.xs
+  },
+  icon: {
+    backgroundColor: theme.colors.iconBackground,
+    color: theme.colors.primary,
+    padding: theme.spacing.sm,
+    borderRadius: theme.spacing.sm,
+    borderWidth: theme.radius.xs,
+    borderColor: theme.colors.border
+  },
+  addWorkoutButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 28,
+    backgroundColor: theme.colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 6,
   }
 });
