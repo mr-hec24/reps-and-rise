@@ -1,8 +1,10 @@
 import { SectionHeader } from '@/components/SectionHeader';
 import { openDonationCheckout } from '@/lib/donations';
 import { useThemeMode } from '@/theme/ThemeContext';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { usePostHog } from 'posthog-react-native';
 
 type DonationTier = {
   id: string;
@@ -39,14 +41,27 @@ const tiers: DonationTier[] = [
 ];
 
 export default function BuyMeACoffeeModal() {
+  const posthog = usePostHog();
   const { theme } = useThemeMode();
   const styles = getStyles(theme);
   const [selectedTier, setSelectedTier] = useState<DonationTier>(tiers[1]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useFocusEffect(
+    useCallback(() => {
+      posthog.capture('screen_view', { screen: 'buy_me_a_coffee_modal', section: 'modal' });
+    }, [posthog])
+  );
+
   const handleDonate = async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
+    posthog.capture('button_click', {
+      screen: 'buy_me_a_coffee_modal',
+      button: 'donate_via_stripe',
+      tier_id: selectedTier.id,
+      tier_amount: selectedTier.amountLabel,
+    });
 
     try {
       const result = await openDonationCheckout(selectedTier.id);
@@ -95,7 +110,10 @@ export default function BuyMeACoffeeModal() {
                 <TouchableOpacity
                   key={tier.id}
                   style={[styles.tierRow, isSelected && styles.tierRowSelected]}
-                  onPress={() => setSelectedTier(tier)}
+                  onPress={() => {
+                    posthog.capture('donation_tier_selected', { tier_id: tier.id, tier_amount: tier.amountLabel });
+                    setSelectedTier(tier);
+                  }}
                   activeOpacity={0.85}
                 >
                   <View style={styles.tierTextWrap}>

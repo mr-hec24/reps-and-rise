@@ -16,6 +16,7 @@ import { UserProvider } from '@/context/user-provider';
 import { ActivityProvider } from '@/context/activity-provider';
 import { ThemeProvider } from '@/theme/ThemeContext';
 import * as Notifications from "expo-notifications"
+import { PostHogProvider } from 'posthog-react-native'
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -59,17 +60,22 @@ export default function RootLayout() {
   }
 
   return (
-    <GluestackUIProvider>
-      <ThemeProvider>
-        <ActivityProvider>
-          <AuthProvider>
-            <UserProvider>
-              <RootLayoutNav />
-            </UserProvider>
-          </AuthProvider>
-        </ActivityProvider>
-      </ThemeProvider>
-    </GluestackUIProvider>
+    <PostHogProvider
+      apiKey={process.env.EXPO_PUBLIC_POSTHOG_KEY!}
+      options={{ host: process.env.EXPO_PUBLIC_POSTHOG_HOST }}
+    >
+      <GluestackUIProvider>
+        <ThemeProvider>
+          <ActivityProvider>
+            <AuthProvider>
+              <UserProvider>
+                <RootLayoutNav />
+              </UserProvider>
+            </AuthProvider>
+          </ActivityProvider>
+        </ThemeProvider>
+      </GluestackUIProvider>
+    </PostHogProvider>
   );
 }
 

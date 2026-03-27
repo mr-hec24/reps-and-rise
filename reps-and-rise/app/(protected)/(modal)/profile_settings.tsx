@@ -8,13 +8,18 @@ import { VStack } from '@/components/ui/vstack';
 import { useAuth } from '@/context/auth-provider';
 import { useUser } from '@/context/user-provider';
 import { pickImage } from '@/lib/image-upload';
+import { useThemeMode } from '@/theme/ThemeContext';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, SafeAreaView, TouchableOpacity } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, SafeAreaView, StyleSheet, TouchableOpacity } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { usePostHog } from 'posthog-react-native';
 
 export default function ProfileScreen() {
+  const posthog = usePostHog();
   const { signOut } = useAuth();
+  const { theme } = useThemeMode();
+  const styles = getStyles(theme);
   const {
     profile,
     isLoading,
@@ -31,7 +36,12 @@ export default function ProfileScreen() {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
-  const [selectedSetting, setSelectedSetting] = useState('none');
+  useFocusEffect(
+    useCallback(() => {
+      posthog.capture('screen_view', { screen: 'profile_settings_modal', section: 'modal' });
+    }, [posthog])
+  );
+
   // Load profile data into form when available
   useEffect(() => {
     if (profile) {
@@ -52,6 +62,8 @@ export default function ProfileScreen() {
   const handleSignOut = async () => {
     if (isSigningOut) return;
 
+    posthog.capture('button_click', { screen: 'profile_settings_modal', button: 'sign_out' });
+
     setIsSigningOut(true);
     try {
       await signOut();
@@ -71,6 +83,7 @@ export default function ProfileScreen() {
     }
 
     try {
+      posthog.capture('button_click', { screen: 'profile_settings_modal', button: 'save_profile_changes' });
       await updateProfile({
         first_name: firstName.trim() || null,
         last_name: lastName.trim() || null,
@@ -84,6 +97,8 @@ export default function ProfileScreen() {
 
   const handleAvatarUpload = async () => {
     if (isUploadingAvatar) return;
+
+    posthog.capture('button_click', { screen: 'profile_settings_modal', button: 'upload_avatar' });
 
     try {
       const result = await pickImage();
@@ -134,9 +149,9 @@ export default function ProfileScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView className='flex h-full w-full flex-1 bg-background'>
+      <SafeAreaView style={styles.safeArea}>
         <VStack space='xl' className='h-full w-full justify-center items-center p-6'>
-          <Text>Loading profile...</Text>
+          <Text style={styles.bodyText}>Loading profile...</Text>
         </VStack>
       </SafeAreaView>
     );
@@ -144,9 +159,9 @@ export default function ProfileScreen() {
 
   if (error && !profile) {
     return (
-      <SafeAreaView className='flex h-full w-full flex-1 bg-background'>
+      <SafeAreaView style={styles.safeArea}>
         <VStack space='xl' className='h-full w-full justify-center items-center p-6'>
-          <Text className='text-center text-red-500'>Error loading profile: {error}</Text>
+          <Text style={styles.errorText}>Error loading profile: {error}</Text>
           <Button onPress={refreshProfile}>
             <ButtonText>Retry</ButtonText>
           </Button>
@@ -156,11 +171,11 @@ export default function ProfileScreen() {
   }
 
   return (
-    <SafeAreaView className='flex h-full w-full flex-1 bg-background'>
+    <SafeAreaView style={styles.safeArea}>
         <VStack space='xl' className='h-full w-full justify-start p-6 pt-12'>
           <VStack space='md' className='w-full items-center'>
-            <Heading size='2xl'>Profile</Heading>
-            <Text className='text-center'>Manage your account information</Text>
+            <Heading size='2xl' style={styles.heading}>Profile</Heading>
+            <Text style={styles.bodyTextCenter}>Manage your account information</Text>
           </VStack>
 
           {/* User Avatar */}
@@ -182,7 +197,7 @@ export default function ProfileScreen() {
                 </AvatarBadge>
               </Avatar>
             </TouchableOpacity>
-            <Text className='text-sm text-gray-500 text-center'>
+            <Text style={styles.helperText}>
               Tap to {profile?.avatar_url ? 'change' : 'upload'} profile picture
             </Text>
           </VStack>
@@ -197,15 +212,17 @@ export default function ProfileScreen() {
               className='w-full'
             >
               <FormControlLabel>
-                <FormControlLabelText>First Name</FormControlLabelText>
+                <FormControlLabelText style={styles.labelText}>First Name</FormControlLabelText>
               </FormControlLabel>
               <Input className='w-full' size='md' variant='outline'>
                 <InputField
                   type='text'
                   placeholder='Enter your first name'
+                  placeholderTextColor={theme.colors.placeholder}
                   value={firstName}
                   onChangeText={text => setFirstName(text)}
                   className='w-full'
+                  style={{ color: theme.colors.text }}
                 />
               </Input>
             </FormControl>
@@ -218,7 +235,7 @@ export default function ProfileScreen() {
               className='w-full'
             >
               <FormControlLabel>
-                <FormControlLabelText>Last Name</FormControlLabelText>
+                <FormControlLabelText style={styles.labelText}>Last Name</FormControlLabelText>
               </FormControlLabel>
               <Input className='w-full' size='md' variant='outline'>
                 <InputField
@@ -227,6 +244,8 @@ export default function ProfileScreen() {
                   value={lastName}
                   onChangeText={text => setLastName(text)}
                   className='w-full'
+                  placeholderTextColor={theme.colors.placeholder}
+                  style={{ color: theme.colors.text }}
                 />
               </Input>
             </FormControl>
@@ -239,7 +258,7 @@ export default function ProfileScreen() {
               className='w-full'
             >
               <FormControlLabel>
-                <FormControlLabelText>Email</FormControlLabelText>
+                <FormControlLabelText style={styles.labelText}>Email</FormControlLabelText>
               </FormControlLabel>
               <Input className='w-full' size='md' variant='outline'>
                 <InputField
@@ -250,6 +269,8 @@ export default function ProfileScreen() {
                   keyboardType='email-address'
                   autoCapitalize='none'
                   editable={false}
+                  placeholderTextColor={theme.colors.placeholder}
+                  style={{ color: theme.colors.text }}
                 />
               </Input>
             </FormControl>
@@ -285,3 +306,33 @@ export default function ProfileScreen() {
     </SafeAreaView>
   );
 }
+
+const getStyles = (theme: any) =>
+  StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    heading: {
+      color: theme.colors.text,
+    },
+    bodyText: {
+      color: theme.colors.text,
+    },
+    bodyTextCenter: {
+      color: theme.colors.text,
+      textAlign: 'center',
+    },
+    helperText: {
+      color: theme.colors.placeholder,
+      textAlign: 'center',
+      fontSize: 12,
+    },
+    errorText: {
+      color: theme.colors.error,
+      textAlign: 'center',
+    },
+    labelText: {
+      color: theme.colors.text
+    }
+  });
