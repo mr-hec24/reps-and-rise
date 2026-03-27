@@ -16,11 +16,15 @@ import { Row } from '@/components/Row';
 import { formatDate } from '@/utils/dateUtils';
 import { useFocusEffect } from '@react-navigation/native';
 import { usePostHog } from 'posthog-react-native';
+import { useWorkoutStore } from '@/store/globalStore';
+import dayjs from 'dayjs';
 
 export default function TabOneScreen() {
   const posthog = usePostHog();
   const { theme } = useThemeMode();
   const styles = getStyles(theme);
+  const fetchWorkouts = useWorkoutStore((state: any) => state.fetchWorkouts);
+  const workouts = useWorkoutStore((state: any) => state.workouts);
 
   const {
     profile
@@ -40,8 +44,12 @@ export default function TabOneScreen() {
   useFocusEffect(
     useCallback(() => {
       posthog.capture('screen_view', { screen: 'home_tab', section: 'tab' });
-    }, [posthog])
+      fetchWorkouts();
+    }, [posthog, fetchWorkouts])
   );
+
+  const streak = calculateWorkoutStreak(workouts);
+  const { weeklySessions, weeklyReps } = calculateWeeklyMetrics(workouts);
 
 
   return (
@@ -71,22 +79,87 @@ export default function TabOneScreen() {
       
       <Row style={{ flexDirection: 'row', justifyContent: 'center', width: '100%' }}>
         <Card style={styles.statCard}>
-          <Text style={styles.statValue}>12</Text>
-          <Text style={styles.statLabel}>This Week</Text>
+          <Text style={styles.statValue}>{weeklySessions}</Text>
+          <Text style={styles.statLabel}>Weekly Sessions</Text>
         </Card>
         <Card style={styles.statCard}>
-          <Text style={styles.statValue}>5</Text>
-          <Text style={styles.statLabel}>Streak</Text>
+          <Text style={styles.statValue}>{streak}</Text>
+          <Text style={styles.statLabel}>Daily Streak</Text>
         </Card>
         <Card style={styles.statCard}>
-          <Text style={styles.statValue}>82%</Text>
-          <Text style={styles.statLabel}>Goal</Text>
+          <Text style={styles.statValue}>{weeklyReps}</Text>
+          <Text style={styles.statLabel}>Weekly Reps</Text>
         </Card>
       </Row>
 
     </View>
     </SafeAreaView>
   );
+}
+
+function calculateWorkoutStreak(workouts: any[]) {
+  if (!Array.isArray(workouts) || workouts.length === 0) {
+    return 0;
+  }
+
+  const workoutDates = new Set(
+    workouts
+      .map((workout) => workout.performed_on || workout.created_at)
+      .filter(Boolean)
+      .map((dateValue) => dayjs(dateValue).format('YYYY-MM-DD'))
+  );
+
+  let cursor = dayjs().startOf('day');
+
+  // Allow streak to continue from yesterday when today's workout is not logged yet.
+  if (!workoutDates.has(cursor.format('YYYY-MM-DD'))) {
+    const yesterday = cursor.subtract(1, 'day');
+    if (!workoutDates.has(yesterday.format('YYYY-MM-DD'))) {
+      return 0;
+    }
+    cursor = yesterday;
+  }
+
+  let streak = 0;
+  while (workoutDates.has(cursor.format('YYYY-MM-DD'))) {
+    streak += 1;
+    cursor = cursor.subtract(1, 'day');
+  }
+
+  return streak;
+}
+
+function calculateWeeklyMetrics(workouts: any[]) {
+  if (!Array.isArray(workouts) || workouts.length === 0) {
+    return {
+      weeklySessions: 0,
+      weeklyReps: 0,
+    };
+  }
+
+  const weekStart = dayjs().startOf('week');
+  const weekEnd = dayjs().endOf('week');
+
+  const workoutsThisWeek = workouts.filter((workout) => {
+    const sourceDate = workout.performed_on || workout.created_at;
+    if (!sourceDate) return false;
+    const d = dayjs(sourceDate);
+    return d.isAfter(weekStart.subtract(1, 'millisecond')) && d.isBefore(weekEnd.add(1, 'millisecond'));
+  });
+
+  const uniqueSessionDates = new Set(
+    workoutsThisWeek.map((workout) => dayjs(workout.performed_on || workout.created_at).format('YYYY-MM-DD'))
+  );
+
+  const weeklyReps = workoutsThisWeek.reduce((sum, workout) => {
+    const reps = Number.parseInt(String(workout.reps), 10);
+    return sum + (Number.isNaN(reps) ? 0 : reps);
+  }, 0);
+
+  return {
+    weeklySessions: uniqueSessionDates.size,
+    weeklyReps,
+  };
 }
 
 

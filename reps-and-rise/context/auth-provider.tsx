@@ -281,7 +281,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     if (initialized) {
       if (session) {
-        router.replace('/');
+        router.replace('/(protected)/(tabs)');
       } else {
         router.replace('/welcome');
       }
