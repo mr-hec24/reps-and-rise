@@ -1,5 +1,8 @@
 import { SectionHeader } from '@/components/SectionHeader';
 import { useThemeMode } from '@/theme/ThemeContext';
+import { useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { usePostHog } from 'posthog-react-native';
 import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 type PolicySection = {
@@ -27,6 +30,7 @@ const policySections: PolicySection[] = [
     paragraphs: [
       'Information you provide directly includes account registration details (name and email), payment information handled by Stripe, and fitness/workout data you log (exercises, sets, reps, weights, and performance metrics).',
       'Information collected automatically includes usage and analytics data, device and technical diagnostics, and authentication tokens generated through Google or Apple SSO.',
+      'Product Analytics (PostHog). We use PostHog to understand how users interact with the App and to improve reliability and features. PostHog may collect usage events (such as screen views, button taps, workout create/edit/delete actions, and settings changes), device and app metadata (such as device model, operating system, app version, locale, and timezone), and technical metadata (such as timestamps and approximate location inferred from IP). We configure analytics to avoid collecting sensitive health details beyond what is necessary to provide and improve core functionality. We do not use analytics data for targeted advertising and do not sell it to third parties.',
     ],
   },
   {
@@ -39,14 +43,17 @@ const policySections: PolicySection[] = [
   {
     title: '5. How We Share Your Information',
     paragraphs: [
-      'We do not sell, rent, or trade your personal information. We share data only with trusted providers needed to run the App, including Stripe for payment processing, cloud infrastructure providers (AWS/GCP/Azure), and Google Analytics for product usage insights.',
+      'We do not sell, rent, or trade your personal information. We share data only with trusted providers needed to run the App, including Stripe for payment processingand PostHog for product usage insights.',
       'We may also disclose information when legally required or when necessary to protect the rights, safety, or property of Phoenix Soteria LLC, our users, or the public.',
+      'Service Provider Disclosure. We share analytics data with PostHog, our analytics processor, solely to provide analytics and product improvement services on our behalf. PostHog acts as a processor/service provider and is contractually restricted from using this data for unrelated purposes. We do not share analytics data with any other third parties, and we do not sell it. For more information on how PostHog handles data, please refer to their privacy policy at https://posthog.com/privacy.',
+      'International Transfers. Analytics data may be processed in the United States, including by PostHog cloud infrastructure (us.i.posthog.com). Where required, we use appropriate safeguards for cross-border transfers.'
     ],
   },
   {
     title: '6. Data Retention',
     paragraphs: [
       'We retain personal information while your account is active or as needed to provide services. If you delete your account, we will delete or anonymize your personal data within 30 days, except where legal retention requirements apply.',
+      'Retention. Analytics event data is retained only as long as necessary for product analytics and operational purposes, then deleted or anonymized in accordance with our retention schedule. We do not retain analytics data for any longer than necessary and do not use it for any purpose other than improving the App.',
     ],
   },
   {
@@ -72,7 +79,8 @@ const policySections: PolicySection[] = [
   {
     title: '10. Third-Party Links and Services',
     paragraphs: [
-      'The App may include links to or integrations with third-party services (for example, Google or Apple sign-in). This policy does not govern third-party services. Please review their policies directly.',
+      'The App may include links to or integrations with third-party services (for example, Google or Apple sign-in, PostHog Analytics). This policy does not govern third-party services. Please review their policies directly.',
+      'We use PostHog as a processor/service provider for analytics and session replay, under contractual restrictions limiting use to services performed on our behalf.'
     ],
   },
   {
@@ -82,7 +90,28 @@ const policySections: PolicySection[] = [
     ],
   },
   {
-    title: '12. Contact Us',
+    title: '12. Session Replay and Product Analytics',
+    paragraphs: [
+      'We use PostHog for product analytics and, where enabled, session replay to understand app usage, diagnose bugs, and improve user experience.',
+      'Session replay may record in-app interactions such as:',
+      'Screen navigation and page/screen views',
+      'Taps, clicks, scrolling, and gesture interactions',
+      'UI state changes and timestamps',
+      'Device/app metadata (for example: app version, OS version, device type, locale, timezone)',
+    ],
+  },
+  {
+    title: '13. Session Replay and Product Analytics',
+    paragraphs: [
+      'We do not intentionally use session replay to collect payment card numbers, account passwords, or other highly sensitive credentials. Where feasible, we apply masking and exclusion controls to prevent sensitive fields from being captured.',
+      'Analytics and replay data may be processed by our service provider, PostHog, including in the United States (for example, via us.i.posthog.com), subject to contractual and security safeguards.',
+      'We use this data only for legitimate business purposes such as: Improving app performance and stability; Debugging errors and fixing defects; Understanding feature adoption and product usage; Prioritizing roadmap improvements',
+      'We retain replay and analytics data only as long as needed for these purposes, then delete or anonymize it according to our retention schedule.',
+      'You may request access to or deletion of personal data associated with analytics/replay by contacting us at the email listed in this policy.'
+    ]
+  },
+  {
+    title: '14. Contact Us',
     paragraphs: [
       'Phoenix Soteria LLC',
       '[Mailing Address - To Be Added]',
@@ -92,8 +121,15 @@ const policySections: PolicySection[] = [
 ];
 
 export default function PrivacySecuritySettings() {
+  const posthog = usePostHog();
   const { theme } = useThemeMode();
   const styles = getStyles(theme);
+
+  useFocusEffect(
+    useCallback(() => {
+      posthog.capture('screen_view', { screen: 'privacy_security_modal', section: 'modal' });
+    }, [posthog])
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>

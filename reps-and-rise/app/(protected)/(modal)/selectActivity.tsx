@@ -1,7 +1,9 @@
 import { View, Text, TouchableOpacity, TextInput, FlatList } from "react-native";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { supabase } from "@/lib/supabase";
+import { usePostHog } from 'posthog-react-native';
+import { useFocusEffect } from '@react-navigation/native';
 
 // const ACTIVITIES = [
 //   "Bench Press",
@@ -19,19 +21,26 @@ import { supabase } from "@/lib/supabase";
 // ];
 
 export default function SelectActivity() {
+  const posthog = usePostHog();
   const [activities, setActivities] = useState([]);
   const [query, setQuery] = useState("");
 
+  useFocusEffect(
+    useCallback(() => {
+      posthog.capture('screen_view', { screen: 'select_activity_modal', section: 'modal' });
+    }, [posthog])
+  );
+
   useEffect(() => {
     const fetchActivities = async () => {
-      const { data, error } = await supabase.from("activities").select("id, activity_name");
+      const { data, error } = await supabase.from("exercises").select("id, name");
       if (!error) setActivities(data);
     };
     fetchActivities();  
   }, []);
 
   const filtered = activities.filter((a) =>
-    a.activity_name.toLowerCase().includes(query.toLowerCase())
+    a.name.toLowerCase().includes(query.toLowerCase())
   );
 
 //   const filtered = ACTIVITIES.filter((a) =>
@@ -39,12 +48,17 @@ export default function SelectActivity() {
 //   );
 
   const handleSelect = (activity) => {
+    posthog.capture('exercise_selected', {
+      source: 'select_activity_modal',
+      exercise_id: activity.id,
+      exercise_name: activity.name,
+    });
     router.back(); // go back to the modal
     setTimeout(() => {
         router.setParams(
             {
                 activity_id: activity.id, 
-                activity_name: activity.activity_name
+                activity_name: activity.name
             }); // send the selected activity back
     }, 0); // slight delay to ensure we're back before sending data
   };
@@ -56,7 +70,10 @@ export default function SelectActivity() {
       <TextInput
         placeholder="Search..."
         value={query}
-        onChangeText={setQuery}
+        onChangeText={(text) => {
+          setQuery(text);
+          posthog.capture('button_click', { screen: 'select_activity_modal', button: 'search_input_change', query_length: text.length });
+        }}
         style={{
           borderWidth: 1,
           borderRadius: 8,
@@ -66,7 +83,7 @@ export default function SelectActivity() {
 
       <FlatList
         data={filtered}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <TouchableOpacity
             onPress={() => handleSelect(item)}
@@ -76,7 +93,7 @@ export default function SelectActivity() {
               borderColor: "#ddd",
             }}
           >
-            <Text style={{ fontSize: 18 }}>{item.activity_name}</Text>
+            <Text style={{ fontSize: 18 }}>{item.name}</Text>
           </TouchableOpacity>
         )}
       />

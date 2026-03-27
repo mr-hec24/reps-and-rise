@@ -3,10 +3,20 @@ import { Card } from '@/components/Card';
 import { SectionHeader } from '@/components/SectionHeader';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useThemeMode } from '@/theme/ThemeContext';
+import { useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { usePostHog } from 'posthog-react-native';
 
 export default function TabOneScreen() {
+  const posthog = usePostHog();
   const { theme } = useThemeMode();
   const styles = getStyles(theme);
+
+  useFocusEffect(
+    useCallback(() => {
+      posthog.capture('screen_view', { screen: 'metrics_tab', section: 'tab' });
+    }, [posthog])
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>

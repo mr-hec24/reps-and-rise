@@ -6,13 +6,15 @@ import { useThemeMode } from '@/theme/ThemeContext';
 import { Card } from "./Card";
 import { FontAwesome } from "@expo/vector-icons";
 import { useActivities } from "@/context/activity-provider";
+import { usePostHog } from 'posthog-react-native';
 
-export default function ExerciseInputCard({ exercise, onUpdate, onRemove, index, allExercises = [], editable = true }) {
+export default function ExerciseInputCard({ exercise, onUpdate, onRemove, index, allExercises = [], editable = true }: any) {
+  const posthog = usePostHog();
   const { theme } = useThemeMode();
   const styles = getStyles(theme);
   const [localExercise, setLocalExercise] = useState(exercise);
   const [activityInput, setActivityInput] = useState(exercise?.activity_name || '');
-  const [suggestions, setSuggestions] = useState([]);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [duplicateError, setDuplicateError] = useState('');
   const { activities, loading } = useActivities();
@@ -34,12 +36,21 @@ export default function ExerciseInputCard({ exercise, onUpdate, onRemove, index,
   const addSet = () => {
     const newSetNumber = (localExercise.sets.length + 1).toString();
     const newSets = [...localExercise.sets, { sets: newSetNumber, reps: '', weight: '' }];
+    posthog.capture('set_added', {
+      exercise_id: localExercise.activity_id || null,
+      set_count_after: newSets.length,
+    });
     updateExercise({ ...localExercise, sets: newSets });
   };
 
   const removeSet = (index) => {
     if (localExercise.sets.length > 1) {
       const newSets = localExercise.sets.filter((_, i) => i !== index);
+      posthog.capture('set_deleted', {
+        exercise_id: localExercise.activity_id || null,
+        removed_set_index: index,
+        set_count_after: newSets.length,
+      });
       updateExercise({ ...localExercise, sets: newSets });
     }
   };
@@ -54,9 +65,9 @@ export default function ExerciseInputCard({ exercise, onUpdate, onRemove, index,
   const handleActivitySearch = (text) => {
     setActivityInput(text);
     if (text.length > 0) {
-      const filtered = activities.filter((activity) =>
-        activity.name.toLowerCase().includes(text.toLowerCase())
-      );
+      const filtered = activities
+        .filter((activity) => activity.name.toLowerCase().includes(text.toLowerCase()))
+        .slice(0, 3);
       setSuggestions(filtered);
       setShowSuggestions(true);
     } else {
@@ -72,6 +83,10 @@ export default function ExerciseInputCard({ exercise, onUpdate, onRemove, index,
     );
 
     if (isDuplicate) {
+      posthog.capture('duplicate_exercise_blocked', {
+        attempted_exercise_id: activityId,
+        attempted_exercise_name: activityName,
+      });
       setDuplicateError(`${activityName} is already in your workout!`);
       setTimeout(() => setDuplicateError(''), 3000); // Clear error after 3 seconds
       return;
@@ -85,6 +100,10 @@ export default function ExerciseInputCard({ exercise, onUpdate, onRemove, index,
       ...localExercise,
       activity_id: activityId,
       activity_name: activityName,
+    });
+    posthog.capture('exercise_selected', {
+      exercise_id: activityId,
+      exercise_name: activityName,
     });
   };
 
@@ -101,12 +120,23 @@ export default function ExerciseInputCard({ exercise, onUpdate, onRemove, index,
             editable={!loading}
             style={styles.activityInput}
             placeholderTextColor={theme.colors.placeholder}
+            textContentType="none"
+            autoComplete="off"
           />
         ) : (
           <Text style={styles.readOnlyActivity}>{localExercise.activity_name || 'No activity selected'}</Text>
         )}
         {editable && (
-          <TouchableOpacity onPress={onRemove} style={styles.removeButton}>
+          <TouchableOpacity
+            onPress={() => {
+              posthog.capture('exercise_deleted', {
+                exercise_id: localExercise.activity_id || null,
+                exercise_name: localExercise.activity_name || null,
+              });
+              onRemove?.();
+            }}
+            style={styles.removeButton}
+          >
             <FontAwesome name="trash" size={theme.spacing.lg} color={theme.colors.white} />
           </TouchableOpacity>
         )}
@@ -159,6 +189,8 @@ export default function ExerciseInputCard({ exercise, onUpdate, onRemove, index,
                   keyboardType="numeric"
                   style={styles.inputBox}
                   placeholderTextColor={theme.colors.placeholder}
+                  textContentType="none"
+                  autoComplete="off"
                 />
               </View>
 
@@ -171,6 +203,8 @@ export default function ExerciseInputCard({ exercise, onUpdate, onRemove, index,
                   keyboardType="numeric"
                   style={styles.inputBox}
                   placeholderTextColor={theme.colors.placeholder}
+                  textContentType="none"
+                  autoComplete="off"
                 />
               </View>
 

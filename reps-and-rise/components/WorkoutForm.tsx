@@ -5,6 +5,7 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view
 import { useThemeMode } from '@/theme/ThemeContext';
 import { FontAwesome } from "@expo/vector-icons";
 import ExerciseInputCard from './ExerciseInputCard';
+import { usePostHog } from 'posthog-react-native';
 
 
 export default function WorkoutForm({
@@ -13,8 +14,9 @@ export default function WorkoutForm({
   submitLabel = "Save",
   editable = true,
 }) {
+  const posthog = usePostHog();
   const [isEditable, setIsEditable] = useState(editable);
-  const [exercises, setExercises] = useState(() => {
+  const [exercises, setExercises] = useState<any[]>(() => {
     if (Array.isArray(initialValues)) {
       return initialValues.length > 0 ? initialValues : [{ activity_id: '', activity_name: '', sets: [{ sets: '', reps: '', weight: '' }] }];
     }
@@ -37,6 +39,10 @@ export default function WorkoutForm({
   const params = useLocalSearchParams();
   const handleSubmit = async () => {
     await onSubmit(exercises);
+    posthog.capture('workout_form_saved', {
+      exercise_count: exercises.length,
+      total_sets: exercises.reduce((sum, ex) => sum + (Array.isArray(ex.sets) ? ex.sets.length : 0), 0),
+    });
 
     setSuccessMessage("Successfully submitted!");
     setIsEditable(false);
@@ -46,11 +52,14 @@ export default function WorkoutForm({
 
   useEffect(() => {
     if (params.activity_id && params.activity_name && params.index !== undefined) {
-      const idx = parseInt(params.index);
+      const idxParam = Array.isArray(params.index) ? params.index[0] : params.index;
+      const activityId = Array.isArray(params.activity_id) ? params.activity_id[0] : params.activity_id;
+      const activityName = Array.isArray(params.activity_name) ? params.activity_name[0] : params.activity_name;
+      const idx = parseInt(String(idxParam), 10);
       setExercises((prev) => {
         const newEx = [...prev];
         if (newEx[idx]) {
-          newEx[idx] = { ...newEx[idx], activity_id: params.activity_id, activity_name: params.activity_name };
+          newEx[idx] = { ...newEx[idx], activity_id: activityId, activity_name: activityName };
         }
         return newEx;
       });
@@ -73,9 +82,9 @@ export default function WorkoutForm({
             key={idx}
             index={idx}
             exercise={ex}
-            allExercises={exercises}
+            allExercises={exercises as any}
             editable={isEditable}
-            onUpdate={isEditable ? (updated) => {
+            onUpdate={isEditable ? (updated: any) => {
               const newEx = [...exercises];
               newEx[idx] = updated;
               setExercises(newEx);
@@ -86,7 +95,10 @@ export default function WorkoutForm({
 
         {isEditable && (
           <TouchableOpacity
-            onPress={() => setExercises([...exercises, { activity_id: '', activity_name: '', sets: [{ sets: '', reps: '', weight: '' }] }])}
+            onPress={() => {
+              posthog.capture('exercise_added', { source: 'workout_form' });
+              setExercises([...exercises, { activity_id: '', activity_name: '', sets: [{ sets: '', reps: '', weight: '' }] }]);
+            }}
             style={styles.addButton}
           >
             <Text style={{ color: "white" }}>Add Exercise</Text>
@@ -104,6 +116,7 @@ export default function WorkoutForm({
             if (isEditable) {
               handleSubmit();
             } else {
+              posthog.capture('workout_edit_mode_started', { source: 'workout_form' });
               setIsEditable(true);
             }
           }}

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { SafeAreaView, View, Text } from 'react-native';
+import React from 'react';
+import { SafeAreaView, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import WorkoutForm from '@/components/WorkoutForm';
 import { SectionHeader } from '@/components/SectionHeader';
@@ -8,70 +8,101 @@ import { FontAwesome } from '@expo/vector-icons';
 import { useThemeMode } from '@/theme/ThemeContext';
 import { StyleSheet } from 'react-native';
 import { Row } from '@/components/Row';
+import { useWorkoutStore } from '@/store/globalStore';
+import { usePostHog } from 'posthog-react-native';
+import { useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function DayWorkoutView() {
+    const posthog = usePostHog();
     const router = useRouter();
     const params = useLocalSearchParams();
     const { date, workouts } = params;
     const { theme } = useThemeMode();
     const styles = getStyles(theme);
-    const [isEditable, setIsEditable] = useState(false);
+    const storeAddWorkout = useWorkoutStore((state: any) => state.addWorkout);
+    const storeUpdateWorkout = useWorkoutStore((state: any) => state.updateWorkout);
+    const storeDeleteWorkout = useWorkoutStore((state: any) => state.deleteWorkout);
+
+    useFocusEffect(
+        useCallback(() => {
+            posthog.capture('screen_view', { screen: 'day_workout_view', section: 'protected', date: String(date || '') });
+        }, [posthog, date])
+    );
 
     // Parse the workouts data from params
     const workoutData = typeof workouts === 'string' ? JSON.parse(workouts) : [];
 
-    // For POC, use sample data if no workouts passed
-    const sampleData = [
-        {
-            "activity_id": "1",
-            "activity_name": "Bench Press",
-            "sets": [
-                {
-                    "sets": "1",
-                    "reps": "10",
-                    "weight": "135"
-                },
-                {
-                    "sets": "2",
-                    "reps": "8",
-                    "weight": "155"
-                },
-                {
-                    "sets": "3",
-                    "reps": "6",
-                    "weight": "175"
-                }
-            ]
-        },
-        {
-            "activity_id": "2",
-            "activity_name": "Squats",
-            "sets": [
-                {
-                    "sets": "1",
-                    "reps": "12",
-                    "weight": "185"
-                },
-                {
-                    "sets": "2",
-                    "reps": "10",
-                    "weight": "205"
-                }
-            ]
-        }
-    ];
+    // Track original row IDs so we can detect deletions on save
+    const originalIds: string[] = workoutData.map((w: any) => w.id);
 
     // Transform workout data to match WorkoutForm expected format
-    const transformedData = workoutData.length > 0 ? transformWorkoutsToExercises(workoutData) : sampleData;
+    const displayData = workoutData.length > 0 ? transformWorkoutsToExercises(workoutData) : [];
 
-    const displayData = transformedData;
+    const handleSubmit = async (submittedExercises: any[]) => {
+        const originalIdSet = new Set(originalIds);
+        const submittedIdSet = new Set<string>();
+        const ops: Promise<any>[] = [];
+        let addedCount = 0;
+        let editedCount = 0;
+        let deletedCount = 0;
+
+        for (const exercise of submittedExercises) {
+            if (!exercise.activity_id) continue;
+            for (const [i, set] of exercise.sets.entries()) {
+                const reps = parseInt(set.reps) || null;
+                const weight = parseFloat(set.weight) || null;
+                if (reps == null && weight == null) continue;
+
+                if (set._rowId) {
+                    submittedIdSet.add(set._rowId);
+                    editedCount += 1;
+                    ops.push(storeUpdateWorkout(set._rowId, {
+                        exercise_xid: exercise.activity_id,
+                        reps,
+                        weight,
+                        set_num: i + 1,
+                    }));
+                } else {
+                    // New set — insert it
+                    addedCount += 1;
+                    ops.push(storeAddWorkout({
+                        exercise_xid: exercise.activity_id,
+                        reps,
+                        weight,
+                        set_num: i + 1,
+                        performed_on: (date as string) || undefined,
+                    }));
+                }
+            }
+        }
+
+        // Delete rows that were removed from the form
+        for (const id of originalIdSet) {
+            if (!submittedIdSet.has(id)) {
+                deletedCount += 1;
+                ops.push(storeDeleteWorkout(id));
+            }
+        }
+
+        await Promise.all(ops);
+        posthog.capture('workout_day_saved', {
+            date: String(date || ''),
+            added_rows: addedCount,
+            edited_rows: editedCount,
+            deleted_rows: deletedCount,
+        });
+    };
 
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.container}>
                 <Row style={styles.header}>
                     <TouchableOpacity
-                        onPress={() => router.back()}
+                        onPress={() => {
+                            posthog.capture('button_click', { screen: 'day_workout_view', button: 'back' });
+                            router.back();
+                        }}
                         style={styles.backButton}
                     >
                         <FontAwesome name="arrow-left" size={24} color={theme.colors.primary} />
@@ -84,8 +115,8 @@ export default function DayWorkoutView() {
 
                 <WorkoutForm
                     initialValues={displayData}
-                    editable={isEditable}
-                    onSubmit={() => {}}
+                    editable={false}
+                    onSubmit={handleSubmit}
                 />
 
             </View>
@@ -97,8 +128,8 @@ export default function DayWorkoutView() {
 function transformWorkoutsToExercises(workouts: any[]) {
     // Group workouts by activity
     const groupedByActivity = workouts.reduce((acc: Record<string, any>, workout: any) => {
-        const activityId = workout.activities?.id || workout.activity_id;
-        const activityName = workout.activities?.activity_name || workout.activity_name;
+        const activityId = workout.exercises?.id || workout.exercise_xid || workout.activities?.id || workout.activity_id;
+        const activityName = workout.exercises?.name || workout.activities?.activity_name || workout.activity_name;
 
         if (!acc[activityId]) {
             acc[activityId] = {
@@ -108,9 +139,10 @@ function transformWorkoutsToExercises(workouts: any[]) {
             };
         }
 
-        // Add this workout as a set
+        // Add this workout as a set — keep DB row id for update/delete
         acc[activityId].sets.push({
-            sets: workout.set?.toString() || '1',
+            _rowId: workout.id,
+            sets: workout.set_num?.toString() || '1',
             reps: workout.reps?.toString() || '0',
             weight: workout.weight?.toString() || '0'
         });
@@ -150,23 +182,5 @@ const getStyles = (theme: any) => StyleSheet.create({
     },
     backButton: {
         padding: 8,
-    },
-    editButton: {
-        position: 'absolute',
-        right: theme.spacing.md,
-        bottom: theme.spacing.md,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: theme.colors.primary,
-        paddingVertical: theme.spacing.sm,
-        paddingHorizontal: theme.spacing.md,
-        borderRadius: theme.radius.full,
-        elevation: 3,
-    },
-    editButtonText: {
-        color: 'white',
-        fontWeight: '600',
-        marginLeft: theme.spacing.xs,
     },
 });

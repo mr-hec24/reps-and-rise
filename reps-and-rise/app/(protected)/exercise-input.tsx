@@ -1,17 +1,42 @@
 import { useWorkoutStore } from '@/store/globalStore';
-import React, { useState, useEffect } from 'react';
-import { SafeAreaView, StyleSheet, Text, View, FlatList, TextInput, Button, TouchableWithoutFeedback, TouchableOpacity, Keyboard } from 'react-native';
+import React from 'react';
+import { Alert, SafeAreaView, StyleSheet, View, TouchableWithoutFeedback, TouchableOpacity, Keyboard } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import WorkoutForm from '@/components/WorkoutForm';
 import { SectionHeader } from '@/components/SectionHeader';
 import { useThemeMode } from '@/theme/ThemeContext';
+import { usePostHog } from 'posthog-react-native';
+import { useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function ExerciseCard() {
+    const posthog = usePostHog();
     const router = useRouter();
     const addWorkout = useWorkoutStore((state: any) => state.addWorkout);
+    const { date } = useLocalSearchParams<{ date?: string }>();
     const { theme } = useThemeMode();
     const styles = getStyles(theme);
+
+    useFocusEffect(
+        useCallback(() => {
+            posthog.capture('screen_view', { screen: 'exercise_input', section: 'protected' });
+            posthog.capture('workout_session_started', { source: 'exercise_input_screen' });
+        }, [posthog])
+    );
+
+    const resolvePerformedOn = () => {
+        if (!date || Array.isArray(date)) return null;
+        const parsedDate = new Date(date);
+        if (Number.isNaN(parsedDate.getTime())) return null;
+        return parsedDate.toISOString().slice(0, 10);
+    };
+
+    const toNullableInt = (value: unknown) => {
+        if (value === '' || value === null || value === undefined) return null;
+        const parsed = Number.parseInt(String(value), 10);
+        return Number.isNaN(parsed) ? null : parsed;
+    };
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -20,7 +45,10 @@ export default function ExerciseCard() {
                 <View style={styles.header}>
                     <SectionHeader title="Input Workout" />
                     <TouchableOpacity
-                        onPress={() => router.back()}
+                        onPress={() => {
+                            posthog.capture('button_click', { screen: 'exercise_input', button: 'close' });
+                            router.back();
+                        }}
                         style={styles.closeButton}
                         activeOpacity={0.7}
                     >
@@ -29,23 +57,71 @@ export default function ExerciseCard() {
                 </View>
 
                 <WorkoutForm
-                    initialValues={{
-                        activity: 'Pushup',
-                        weight: 15,
-                        reps: 10,
-                        sets: 1,
-                    }}
+                    initialValues={[
+                        {
+                            activity_id: '',
+                            activity_name: '',
+                            sets: [{ sets: '1', reps: '', weight: '' }],
+                        },
+                    ]}
                     editable={true}
-                    onSubmit={(form: any) => {
-                        addWorkout({
-                            activity_xid: form.activity_id,
-                            weight: form.weight,
-                            reps: form.reps,
-                            set: form.sets,
+                    onSubmit={async (forms: any[]) => {
+                        const performedOn = resolvePerformedOn();
+
+                        const inserts = forms.flatMap((form) => {
+                            const activityId = form.activity_id;
+                            const sets = Array.isArray(form.sets) ? form.sets : [];
+
+                            if (!activityId) {
+                                return [];
+                            }
+
+                            return sets
+                                .map((s: any, index: number) => {
+                                    const reps = toNullableInt(s.reps);
+                                    const weight = toNullableInt(s.weight);
+                                    const setNum = toNullableInt(s.sets) ?? index + 1;
+
+                                    if (reps === null && weight === null) {
+                                        return null;
+                                    }
+
+                                    const row: any = {
+                                        exercise_xid: activityId,
+                                        weight,
+                                        reps,
+                                        set_num: setNum,
+                                    };
+
+                                    if (performedOn) {
+                                        row.performed_on = performedOn;
+                                    }
+
+                                    return row;
+                                })
+                                .filter(Boolean);
                         });
+
+                        if (inserts.length === 0) {
+                            Alert.alert(
+                                'Nothing to save',
+                                'Select an exercise and add reps or weight before saving your workout.'
+                            );
+                            return;
+                        }
+
+                        posthog.capture('workout_created', {
+                            source: 'exercise_input',
+                            rows_to_insert: inserts.length,
+                            performed_on: performedOn,
+                        });
+
+                        for (const row of inserts) {
+                            await addWorkout(row);
+                        }
+
                         router.back();
                     }}
-                
                 />
             </View>
         </TouchableWithoutFeedback>

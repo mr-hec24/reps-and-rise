@@ -5,7 +5,7 @@ import { Text, View } from '@/components/Themed';
 import { Button, ButtonIcon, ButtonText } from '@/components/ui/button';
 
 import { useUser } from '@/context/user-provider';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Card } from '@/components/Card';
 import { useThemeMode } from '@/theme/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,8 +14,11 @@ import { router } from 'expo-router';
 import { SectionHeader } from '@/components/SectionHeader';
 import { Row } from '@/components/Row';
 import { formatDate } from '@/utils/dateUtils';
+import { useFocusEffect } from '@react-navigation/native';
+import { usePostHog } from 'posthog-react-native';
 
 export default function TabOneScreen() {
+  const posthog = usePostHog();
   const { theme } = useThemeMode();
   const styles = getStyles(theme);
 
@@ -34,6 +37,12 @@ export default function TabOneScreen() {
     }
   }, [profile]);
 
+  useFocusEffect(
+    useCallback(() => {
+      posthog.capture('screen_view', { screen: 'home_tab', section: 'tab' });
+    }, [posthog])
+  );
+
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -42,7 +51,11 @@ export default function TabOneScreen() {
         <SectionHeader title={`Today is ${formatDate(new Date())}`} />
       <Text style={styles.subtitle}>Ready to crush your workout?</Text>
 
-      <TouchableOpacity onPress={() => router.push({pathname: '/exercise-input'})}>
+      <TouchableOpacity onPress={() => {
+        posthog.capture('button_click', { screen: 'home_tab', button: 'start_exercise' });
+        posthog.capture('workout_session_started', { source: 'home_tab' });
+        router.push({pathname: '/exercise-input'});
+      }}>
         <LinearGradient colors={[theme.colors.secondary, theme.colors.primary]} start={{x:0, y:0}} end={{x:1, y:1}} style={styles.startButton}>
           <Image 
             style={styles.image}

@@ -4,16 +4,19 @@ import { useAuth } from '@/context/auth-provider';
 import { useUser } from '@/context/user-provider';
 import { pickImage } from '@/lib/image-upload';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View, SafeAreaView } from 'react-native';
 import { VStack } from '@/components/ui/vstack';
 import { useThemeMode } from '@/theme/ThemeContext';
 import { SectionHeader } from '@/components/SectionHeader';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
+import { usePostHog } from 'posthog-react-native';
 
 
 export default function ProfileScreen() {
+  const posthog = usePostHog();
   const { signOut } = useAuth();
   const {
     profile,
@@ -52,6 +55,12 @@ export default function ProfileScreen() {
       setHasChanges(firstName !== currentFirstName || lastName !== currentLastName);
     }
   }, [firstName, lastName, profile]);
+
+  useFocusEffect(
+    useCallback(() => {
+      posthog.capture('screen_view', { screen: 'settings_tab', section: 'tab' });
+    }, [posthog])
+  );
 
   const getDisplayName = () => {
     if (profile?.first_name || profile?.last_name) {
@@ -112,24 +121,31 @@ export default function ProfileScreen() {
   }
 
   const openSelectedSetting = (setting: string) => {
+    posthog.capture('button_click', { screen: 'settings_tab', button: setting });
     setSelectedSetting(setting); 
     switch (setting) {
       case "Profile Settings":
+        posthog.capture('modal_opened', { modal: 'profile_settings' });
         router.push("/profile_settings");
         break;
       case "Notifications":
+        posthog.capture('modal_opened', { modal: 'notification_settings' });
         router.push('/notification_settings')
         break;  
       case "Privacy & Security":
+        posthog.capture('modal_opened', { modal: 'privacy_security_setting' });
         router.push('/privacy_security_setting');
         break;    
       case "Appearance":
+        posthog.capture('appearance_toggled', { source: 'settings_tab' });
         toggleTheme();
         break;
       case "Send Feedback": 
+        posthog.capture('modal_opened', { modal: 'send_feedback' });
         router.push('/send_feedback');
         break;
       case "Buy Me a Coffee":
+        posthog.capture('modal_opened', { modal: 'buy_me_a_coffee' });
         router.push('/buy_me_a_coffee' as never);
         break;
       default:

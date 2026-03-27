@@ -30,19 +30,17 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
       setLoading(true);
       setError(null);
       
-      // TODO: Update table and column names once DB is finalized
-      // Currently using placeholder names: 'activities_table' and columns 'activity_id', 'activity_name'
       const { data, error: supabaseError } = await supabase
-        .from('activities') // Change this to your actual table name
-        .select('id, activity_name') // Change 'activity_id' and 'activity_name' to match your columns
-        .order('activity_name', { ascending: true });
+        .from('exercises')
+        .select('id, name')
+        .order('name', { ascending: true });
 
       if (supabaseError) throw supabaseError;
 
       // Map columns to standard format
       const mappedActivities = (data || []).map((item: any) => ({
         id: item.id,
-        name: item.activity_name,
+        name: item.name,
       }));
 
       setActivities(mappedActivities);

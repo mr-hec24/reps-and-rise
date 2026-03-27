@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, Platform, SafeAreaView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { SectionHeader } from '@/components/SectionHeader';
 import { useThemeMode } from '@/theme/ThemeContext';
+import { useFocusEffect } from '@react-navigation/native';
+import { usePostHog } from 'posthog-react-native';
 import {
   cancelNotificationById,
   getNotificationPermissionStatus,
@@ -13,6 +15,7 @@ import {
 } from '@/utils/notifications';
 
 export default function NotificationSettingsCard() {
+  const posthog = usePostHog();
   const { theme } = useThemeMode();
   const styles = getStyles(theme);
 
@@ -24,6 +27,12 @@ export default function NotificationSettingsCard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [permissionStatus, setPermissionStatus] = useState<'granted' | 'denied' | 'undetermined'>('undetermined');
+
+  useFocusEffect(
+    useCallback(() => {
+      posthog.capture('screen_view', { screen: 'notification_settings_modal', section: 'modal' });
+    }, [posthog])
+  );
 
   useEffect(() => {
     const hydrate = async () => {
@@ -76,6 +85,11 @@ export default function NotificationSettingsCard() {
 
   const handleToggleDaily = async (nextValue: boolean) => {
     if (isUpdating) return;
+    posthog.capture('button_click', {
+      screen: 'notification_settings_modal',
+      button: 'daily_reminder_toggle',
+      enabled: nextValue,
+    });
 
     setIsUpdating(true);
     const hour = reminderTime.getHours();
@@ -126,6 +140,7 @@ export default function NotificationSettingsCard() {
   };
 
   const openTimePicker = () => {
+    posthog.capture('button_click', { screen: 'notification_settings_modal', button: 'open_reminder_time_picker' });
     setDraftReminderTime(reminderTime);
     setShowTimePicker(true);
   };
@@ -178,6 +193,10 @@ export default function NotificationSettingsCard() {
   };
 
   const handleSaveTime = async () => {
+    posthog.capture('reminder_time_updated', {
+      hour: draftReminderTime.getHours(),
+      minute: draftReminderTime.getMinutes(),
+    });
     await applyReminderTime(draftReminderTime);
     setShowTimePicker(false);
   };
