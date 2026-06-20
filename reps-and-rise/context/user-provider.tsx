@@ -72,7 +72,7 @@ export function UserProvider({ children }: PropsWithChildren) {
 
       const profileData = {
         id: userId,
-        email: user.email!,
+        email: user.email ?? null,
         first_name: user.user_metadata?.first_name || null,
         last_name: user.user_metadata?.last_name || null,
       };

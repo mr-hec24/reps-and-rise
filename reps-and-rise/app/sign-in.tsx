@@ -11,11 +11,13 @@ import { Input, InputField } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useAuth } from '@/context/auth-provider';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Keyboard, SafeAreaView, Touchable, TouchableWithoutFeedback } from 'react-native';
+import { Keyboard, SafeAreaView, TouchableWithoutFeedback } from 'react-native';
 
 export default function SignIn() {
-  const { signIn } = useAuth();
+  const router = useRouter();
+  const { signIn, signInAsGuest } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -24,6 +26,14 @@ export default function SignIn() {
       await signIn(email, password);
     } catch (error) {
       console.error('Error signing in:', error);
+    }
+  };
+
+  const handleGuestSignIn = async () => {
+    try {
+      await signInAsGuest();
+    } catch (error) {
+      console.error('Error signing in as guest:', error);
     }
   };
 
@@ -94,6 +104,24 @@ export default function SignIn() {
             onPress={handleSignIn}
           >
             <ButtonText>Sign In</ButtonText>
+          </Button>
+          <Button
+            size='lg'
+            variant='outline'
+            action='secondary'
+            className='w-full'
+            onPress={() => router.push('/forgot-password')}
+          >
+            <ButtonText>Forgot Password?</ButtonText>
+          </Button>
+          <Button
+            size='lg'
+            variant='outline'
+            action='secondary'
+            className='w-full'
+            onPress={handleGuestSignIn}
+          >
+            <ButtonText>Continue as Guest</ButtonText>
           </Button>
         </VStack>
       </VStack>

@@ -11,11 +11,13 @@ import { Input, InputField } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useAuth } from '@/context/auth-provider';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Keyboard, SafeAreaView, TouchableWithoutFeedback } from 'react-native';
 
 export default function SignUp() {
-  const { signUp } = useAuth();
+  const router = useRouter();
+  const { signUp, isGuest } = useAuth();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -99,9 +101,13 @@ export default function SignUp() {
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <VStack space='xl' className='h-full w-full justify-center p-6'>
         <VStack space='md' className='w-full items-center'>
-          <Heading size='2xl'>Sign Up</Heading>
-          <Text className='text-center'>Create your account</Text>
-        </VStack>
+        <Heading size='2xl'>{isGuest ? 'Register Your Account' : 'Sign Up'}</Heading>
+        <Text className='text-center'>
+          {isGuest
+            ? 'Finish registering your guest account with an email and password.'
+            : 'Create your account'}
+        </Text>
+      </VStack>
 
         {errorMessage ? (
           <VStack className='w-full'>
