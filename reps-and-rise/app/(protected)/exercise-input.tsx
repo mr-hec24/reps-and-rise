@@ -1,11 +1,10 @@
 import { EmberWordmark } from '@/components/EmberMark';
 import { MIN_BOTTOM_PAD, Screen } from '@/components/Screen';
-import { SectionLabel } from '@/components/ui-ember';
+import { DateField, SectionLabel } from '@/components/ui-ember';
 import { useActivities } from '@/context/activity-provider';
 import { useWorkoutStore, type WorkoutItem } from '@/store/globalStore';
 import { useThemeMode } from '@/theme/ThemeContext';
 import { lastSetFor, workoutDayKey } from '@/utils/workoutStats';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect } from '@react-navigation/native';
 import dayjs from 'dayjs';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -15,7 +14,6 @@ import {
   Alert,
   FlatList,
   Modal,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -67,7 +65,6 @@ export default function LogWorkout() {
   }, [date]);
 
   const [sessionDate, setSessionDate] = useState<Date>(parsedRouteDate ?? new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [exercises, setExercises] = useState<SessionExercise[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [reps, setReps] = useState('');
@@ -219,30 +216,16 @@ export default function LogWorkout() {
       {/* Header */}
       <View style={styles.header}>
         <EmberWordmark size={19} style={styles.headerBrand} />
-        <TouchableOpacity
-          onPress={() => setShowDatePicker(true)}
-          style={styles.chip}
-          accessibilityRole='button'
-        >
-          <Text style={styles.chipText}>{dayjs(sessionDate).format('ddd MMM D')}</Text>
-          <Text style={styles.chipCaret}>▾</Text>
-        </TouchableOpacity>
+        <DateField
+          value={sessionDate}
+          onChange={setSessionDate}
+          variant='chip'
+          label='Workout date'
+        />
         <TouchableOpacity onPress={finish} style={styles.chip} accessibilityRole='button'>
           <Text style={styles.finishText}>Finish</Text>
         </TouchableOpacity>
       </View>
-
-      {showDatePicker && (
-        <DateTimePicker
-          value={sessionDate}
-          mode='date'
-          display='default'
-          onChange={(_, newDate) => {
-            if (Platform.OS !== 'web') setShowDatePicker(false);
-            if (newDate) setSessionDate(newDate);
-          }}
-        />
-      )}
 
       {/* Exercise strip */}
       <View style={styles.strip}>
@@ -484,12 +467,6 @@ const getStyles = (theme: any) =>
       borderWidth: 1,
       borderColor: theme.colors.border,
     },
-    chipText: {
-      fontFamily: theme.font.family.bodyMedium,
-      fontSize: 12.5,
-      color: theme.colors.text,
-    },
-    chipCaret: { fontSize: 10, color: theme.colors.secondary },
     finishText: {
       fontFamily: theme.font.family.bodySemibold,
       fontSize: 12.5,

@@ -8,7 +8,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import dayjs from 'dayjs';
 import { router } from 'expo-router';
 import { usePostHog } from 'posthog-react-native';
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function HistoryScreen() {
@@ -21,14 +21,13 @@ export default function HistoryScreen() {
   const fetchWorkouts = useWorkoutStore(state => state.fetchWorkouts);
   const workouts = useWorkoutStore(state => state.workouts);
 
-  useEffect(() => {
-    fetchWorkouts();
-  }, [fetchWorkouts]);
-
+  // On focus, not just on mount: editing a session's date elsewhere has to be
+  // reflected when the user comes back here.
   useFocusEffect(
     useCallback(() => {
       posthog.capture('screen_view', { screen: 'calendar_tab', section: 'tab' });
-    }, [posthog])
+      fetchWorkouts();
+    }, [posthog, fetchWorkouts])
   );
 
   const sessions = useMemo(() => groupSessions(workouts), [workouts]);

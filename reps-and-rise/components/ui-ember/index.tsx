@@ -552,6 +552,8 @@ export function BackButton({
   );
 }
 
+export { DateField } from './DateField';
+
 export const emberStyles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center' },
 });

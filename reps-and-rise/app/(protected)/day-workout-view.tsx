@@ -1,15 +1,15 @@
 import { Screen } from '@/components/Screen';
-import { BackButton, SectionLabel } from '@/components/ui-ember';
+import { BackButton, DateField, SectionLabel } from '@/components/ui-ember';
 import WorkoutForm, { WorkoutFormValues } from '@/components/WorkoutForm';
 import { useWorkoutStore } from '@/store/globalStore';
 import { useThemeMode } from '@/theme/ThemeContext';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { workoutDayKey } from '@/utils/workoutStats';
 import { useFocusEffect } from '@react-navigation/native';
 import dayjs from 'dayjs';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { usePostHog } from 'posthog-react-native';
 import React, { useCallback, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type DayWorkoutSet = WorkoutFormValues['sets'][number] & { _rowId?: string };
 
@@ -18,7 +18,6 @@ export default function DayWorkoutView() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { date, workouts } = params;
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const parsedRouteDate = React.useMemo(() => {
     if (!date) return null;
@@ -36,6 +35,8 @@ export default function DayWorkoutView() {
   const storeAddWorkout = useWorkoutStore((state: any) => state.addWorkout);
   const storeUpdateWorkout = useWorkoutStore((state: any) => state.updateWorkout);
   const storeDeleteWorkout = useWorkoutStore((state: any) => state.deleteWorkout);
+  const fetchWorkouts = useWorkoutStore((state: any) => state.fetchWorkouts);
+  const storeWorkouts = useWorkoutStore(state => state.workouts);
 
   useFocusEffect(
     useCallback(() => {
@@ -47,10 +48,29 @@ export default function DayWorkoutView() {
     }, [posthog, date])
   );
 
-  // Parse the workouts data from params
-  const workoutData = typeof workouts === 'string' ? JSON.parse(workouts) : [];
+  /**
+   * Which day this screen is showing. Starts at the date it was opened with and
+   * moves when a save reschedules the session, so the rows follow the sets to
+   * their new day instead of stranding the screen on the old one.
+   */
+  const [viewDayKey, setViewDayKey] = useState<string | null>(
+    parsedRouteDate ? dayjs(parsedRouteDate).format('YYYY-MM-DD') : null
+  );
 
-  // Track original row IDs so we can detect deletions on save
+  // The route param is a JSON snapshot taken when this screen opened. Prefer
+  // the live store and fall back to the snapshot only until the store loads.
+  const snapshotRows: any[] = React.useMemo(
+    () => (typeof workouts === 'string' ? JSON.parse(workouts) : []),
+    [workouts]
+  );
+
+  const workoutData: any[] = React.useMemo(() => {
+    if (storeWorkouts.length === 0) return snapshotRows;
+    if (!viewDayKey) return snapshotRows;
+    return storeWorkouts.filter(row => workoutDayKey(row) === viewDayKey);
+  }, [storeWorkouts, snapshotRows, viewDayKey]);
+
+  // Track current row IDs so we can detect deletions on save
   const originalIds: string[] = workoutData.map((w: any) => w.id);
 
   // Transform workout data to match WorkoutForm expected format
@@ -58,7 +78,7 @@ export default function DayWorkoutView() {
 
   const handleSubmit = async (submittedExercises: WorkoutFormValues | WorkoutFormValues[]) => {
     const exercises = Array.isArray(submittedExercises) ? submittedExercises : [submittedExercises];
-    const performedOn = sessionDate.toISOString().slice(0, 10);
+    const performedOn = dayjs(sessionDate).format('YYYY-MM-DD');
     const originalIdSet = new Set(originalIds);
     const submittedIdSet = new Set<string>();
     const ops: Promise<any>[] = [];
@@ -111,6 +131,13 @@ export default function DayWorkoutView() {
     }
 
     await Promise.all(ops);
+
+    // Re-read the store and follow the session if its date moved, so the rows
+    // below reflect what was just saved rather than the opening snapshot.
+    await fetchWorkouts();
+    setViewDayKey(performedOn);
+    setIsEditing(false);
+
     posthog.capture('workout_day_saved', {
       date: String(date || ''),
       added_rows: addedCount,
@@ -153,28 +180,13 @@ export default function DayWorkoutView() {
 
       {isEditing && (
         <View style={styles.dateRow}>
-          <Text style={styles.dateLabel}>Session date</Text>
-          <TouchableOpacity
-            onPress={() => setShowDatePicker(true)}
-            style={styles.dateButton}
-            accessibilityRole='button'
-          >
-            <Text style={styles.dateValue}>{dayjs(sessionDate).format('MMMM D, YYYY')}</Text>
-            <Text style={styles.dateCaret}>▾</Text>
-          </TouchableOpacity>
+          <DateField
+            value={sessionDate}
+            onChange={setSessionDate}
+            variant='row'
+            label='Session date'
+          />
         </View>
-      )}
-
-      {showDatePicker && (
-        <DateTimePicker
-          value={sessionDate}
-          mode='date'
-          display='default'
-          onChange={(_, newDate) => {
-            if (Platform.OS !== 'web') setShowDatePicker(false);
-            if (newDate) setSessionDate(newDate);
-          }}
-        />
       )}
 
       {isEditing ? (
@@ -284,35 +296,9 @@ const getStyles = (theme: any) =>
       color: theme.colors.secondary,
     },
     dateRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
       paddingHorizontal: 20,
       marginBottom: theme.spacing.md,
-      gap: theme.spacing.sm,
     },
-    dateLabel: {
-      fontFamily: theme.font.family.body,
-      fontSize: 14,
-      color: theme.colors.subtext,
-    },
-    dateButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 7,
-      paddingHorizontal: theme.spacing.md,
-      paddingVertical: theme.spacing.sm,
-      backgroundColor: theme.colors.card,
-      borderRadius: theme.radius.md,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-    },
-    dateValue: {
-      fontFamily: theme.font.family.bodyMedium,
-      fontSize: 14,
-      color: theme.colors.text,
-    },
-    dateCaret: { fontSize: 10, color: theme.colors.secondary },
     readList: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 24, gap: 13 },
     empty: {
       fontFamily: theme.font.family.body,
