@@ -1,27 +1,23 @@
 import { MIN_BOTTOM_PAD, TAB_BAR_CONTENT_HEIGHT } from '@/components/Screen';
 import { useThemeMode } from '@/theme/ThemeContext';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-/**
- * The design's tab indicator: a short ember pill above the label, no icon.
- */
-function TabIndicator({ focused }: { focused: boolean }) {
-  const { theme } = useThemeMode();
+type IconName = React.ComponentProps<typeof FontAwesome>['name'];
 
-  return (
-    <View
-      style={{
-        width: 26,
-        height: 3,
-        borderRadius: theme.radius.pill,
-        backgroundColor: focused ? theme.colors.accent : 'transparent',
-      }}
-    />
-  );
-}
+/**
+ * Icon plus label, rather than the design doc's bare ember pill: an icon is a
+ * far better landmark for anyone scanning the bar, and it gives assistive tech
+ * something to sit on. The active tab is marked with the ember tint instead.
+ */
+const TABS: { name: string; title: string; icon: IconName; a11y: string }[] = [
+  { name: 'index', title: 'Home', icon: 'home', a11y: 'Home tab' },
+  { name: 'calendar', title: 'Calendar', icon: 'calendar', a11y: 'Calendar tab, workout history' },
+  { name: 'metrics', title: 'Metrics', icon: 'bar-chart', a11y: 'Metrics tab' },
+  { name: 'settings', title: 'Settings', icon: 'gear', a11y: 'Settings tab' },
+];
 
 export default function TabLayout() {
   const { theme } = useThemeMode();
@@ -36,33 +32,38 @@ export default function TabLayout() {
       initialRouteName='index'
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: theme.colors.text,
+        tabBarActiveTintColor: theme.colors.accent,
         tabBarInactiveTintColor: theme.colors.muted,
         tabBarStyle: {
           height: TAB_BAR_CONTENT_HEIGHT + bottomInset,
-          paddingTop: 10,
+          paddingTop: 8,
           paddingBottom: bottomInset,
           backgroundColor: theme.colors.surfaceSunken,
           borderTopWidth: 1,
           borderTopColor: theme.colors.hairline,
           elevation: 0,
         },
-        tabBarItemStyle: { gap: 6 },
         tabBarLabelStyle: {
           fontFamily: theme.font.family.bodySemibold,
-          fontSize: 11.5,
+          fontSize: 11,
           // Explicit lineHeight: without it the label's box is shorter than the
           // glyphs and descenders get clipped.
-          lineHeight: 15,
+          lineHeight: 14,
         },
-        tabBarIcon: ({ focused }) => <TabIndicator focused={focused} />,
         sceneStyle: { backgroundColor: theme.colors.background },
       }}
     >
-      <Tabs.Screen name='index' options={{ title: 'Home' }} />
-      <Tabs.Screen name='calendar' options={{ title: 'Calendar' }} />
-      <Tabs.Screen name='metrics' options={{ title: 'Metrics' }} />
-      <Tabs.Screen name='settings' options={{ title: 'Settings' }} />
+      {TABS.map(tab => (
+        <Tabs.Screen
+          key={tab.name}
+          name={tab.name}
+          options={{
+            title: tab.title,
+            tabBarAccessibilityLabel: tab.a11y,
+            tabBarIcon: ({ color }) => <FontAwesome name={tab.icon} size={21} color={color} />,
+          }}
+        />
+      ))}
     </Tabs>
   );
 }
