@@ -1,21 +1,23 @@
-import { Button, ButtonText } from '@/components/ui/button';
+import { Screen } from '@/components/Screen';
 import {
-  FormControl,
-  FormControlLabel,
-  FormControlLabelText,
-} from '@/components/ui/form-control';
-import { Heading } from '@/components/ui/heading';
-import { Input, InputField } from '@/components/ui/input';
-import { Text } from '@/components/ui/text';
-import { VStack } from '@/components/ui/vstack';
+  BackButton,
+  ErrorBanner,
+  Field,
+  PrimaryButton,
+  SecondaryButton,
+} from '@/components/ui-ember';
 import { useAuth } from '@/context/auth-provider';
+import { useThemeMode } from '@/theme/ThemeContext';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Keyboard, SafeAreaView, TouchableWithoutFeedback } from 'react-native';
+import { Keyboard, StyleSheet, Text, TouchableWithoutFeedback, View } from 'react-native';
 
 export default function ForgotPassword() {
   const router = useRouter();
   const { resetPassword } = useAuth();
+  const { theme } = useThemeMode();
+  const styles = getStyles(theme);
+
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -75,79 +77,104 @@ export default function ForgotPassword() {
   };
 
   return (
-    <SafeAreaView className='flex h-full w-full flex-1 bg-background'>
+    <Screen pad={24}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <VStack space='xl' className='h-full w-full justify-center p-6'>
-          <VStack space='md' className='w-full items-center'>
-            <Heading size='2xl'>Reset Password</Heading>
-            <Text className='text-center'>Enter your email to receive reset instructions.</Text>
-          </VStack>
+        <View style={styles.body}>
+          <BackButton onPress={() => router.push('/sign-in')} />
 
-          {message ? (
-            <Text className='text-success-700 text-center text-sm bg-success-50 p-3 rounded-md'>
-              {message}
-            </Text>
-          ) : null}
+          <View style={styles.heading}>
+            <Text style={styles.title}>Reset password</Text>
+            <Text style={styles.subtitle}>Enter your email to receive reset instructions.</Text>
+          </View>
 
-          {errorMessage ? (
-            <Text className='text-error-600 text-center text-sm bg-error-50 p-3 rounded-md'>
-              {errorMessage}
-            </Text>
-          ) : null}
+          <View style={styles.field}>
+            <Field
+              label='Email'
+              placeholder='you@example.com'
+              value={email}
+              onChangeText={setEmail}
+              keyboardType='email-address'
+              autoCapitalize='none'
+              autoComplete='email'
+              editable={!isLoading}
+            />
+          </View>
 
-          <VStack space='lg' className='w-full'>
-            <FormControl
-              size='md'
-              isDisabled={isLoading}
-              isReadOnly={false}
-              isRequired={true}
-              className='w-full'
-            >
-              <FormControlLabel>
-                <FormControlLabelText>Email</FormControlLabelText>
-              </FormControlLabel>
-              <Input className='w-full' size='md' variant='outline'>
-                <InputField
-                  type='text'
-                  placeholder='Enter your email'
-                  value={email}
-                  onChangeText={text => setEmail(text)}
-                  className='w-full'
-                  autoCapitalize='none'
-                  keyboardType='email-address'
-                />
-              </Input>
-            </FormControl>
-          </VStack>
+          <PrimaryButton
+            label={isLoading ? 'Sending…' : 'Send reset link'}
+            onPress={handleResetPassword}
+            loading={isLoading}
+            style={styles.action}
+          />
 
-          <VStack space='md' className='w-full'>
-            <Button
-              size='lg'
-              variant='solid'
-              action='primary'
-              className='w-full'
-              onPress={handleResetPassword}
-              isDisabled={isLoading}
-            >
-              <ButtonText>{isLoading ? 'Sending...' : 'Send Reset Link'}</ButtonText>
-            </Button>
-            {cooldown > 0 ? (
-              <Text className='text-muted-600 text-center text-sm mt-2'>
-                You can request another link in {cooldown} second{cooldown === 1 ? '' : 's'}.
-              </Text>
-            ) : null}
-            <Button
-              size='md'
-              variant='outline'
-              action='secondary'
-              className='w-full'
-              onPress={() => router.push('/sign-in')}
-            >
-              <ButtonText>Already have an account?</ButtonText>
-            </Button>
-          </VStack>
-        </VStack>
+          {!!errorMessage && (
+            <View style={styles.feedback}>
+              <ErrorBanner message={errorMessage} />
+            </View>
+          )}
+
+          {!!message && (
+            <View style={styles.feedback}>
+              <View style={styles.notice}>
+                <Text style={styles.noticeText}>{message}</Text>
+              </View>
+              {cooldown > 0 && (
+                <Text style={styles.cooldown}>
+                  You can request another link in {cooldown} second{cooldown === 1 ? '' : 's'}.
+                </Text>
+              )}
+            </View>
+          )}
+
+          <View style={styles.spacer} />
+          <SecondaryButton
+            label='Already have an account?'
+            onPress={() => router.push('/sign-in')}
+          />
+        </View>
       </TouchableWithoutFeedback>
-    </SafeAreaView>
+    </Screen>
   );
 }
+
+const getStyles = (theme: any) =>
+  StyleSheet.create({
+    body: { flex: 1 },
+    heading: { marginTop: 26, gap: 6 },
+    title: {
+      fontFamily: theme.font.family.display,
+      fontSize: 30,
+      lineHeight: 34,
+      letterSpacing: -0.9,
+      color: theme.colors.text,
+    },
+    subtitle: {
+      fontFamily: theme.font.family.body,
+      fontSize: 14,
+      lineHeight: 22,
+      color: theme.colors.subtext,
+    },
+    field: { marginTop: 26 },
+    action: { marginTop: 22 },
+    feedback: { marginTop: 16, gap: 8 },
+    notice: {
+      padding: 14,
+      borderRadius: 13,
+      backgroundColor: theme.colors.accentSoft,
+      borderWidth: 1,
+      borderColor: theme.colors.accentSoftBorder,
+    },
+    noticeText: {
+      fontFamily: theme.font.family.bodyMedium,
+      fontSize: 13,
+      lineHeight: 19,
+      color: theme.colors.text,
+    },
+    cooldown: {
+      textAlign: 'center',
+      fontFamily: theme.font.family.body,
+      fontSize: 12,
+      color: theme.colors.subtext,
+    },
+    spacer: { flex: 1, minHeight: 24 },
+  });

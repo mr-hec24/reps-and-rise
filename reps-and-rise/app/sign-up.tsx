@@ -1,24 +1,18 @@
-import { Button, ButtonText } from '@/components/ui/button';
-import {
-  FormControl,
-  FormControlHelper,
-  FormControlHelperText,
-  FormControlLabel,
-  FormControlLabelText,
-} from '@/components/ui/form-control';
-import { Heading } from '@/components/ui/heading';
-import { Input, InputField } from '@/components/ui/input';
-import { Text } from '@/components/ui/text';
-import { VStack } from '@/components/ui/vstack';
+import { Screen } from '@/components/Screen';
+import { BackButton, ErrorBanner, Field, PrimaryButton } from '@/components/ui-ember';
 import { useAuth } from '@/context/auth-provider';
-import { useRouter } from 'expo-router';
+import { useThemeMode } from '@/theme/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Keyboard, SafeAreaView, TouchableWithoutFeedback } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 export default function SignUp() {
   const router = useRouter();
   const { signUp, isGuest } = useAuth();
+  const { theme } = useThemeMode();
+  const styles = getStyles(theme);
+
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -70,13 +64,14 @@ export default function SignUp() {
     try {
       await signUp(email, password, firstName, lastName);
       // On successful signup (including cases where email verification is required),
-      // flag sign-in to show a verification notice and navigate the user back to sign-in.
+      // flag sign-in to show a verification notice and send the user to the
+      // confirm-email screen.
       try {
         await AsyncStorage.setItem('signupShowVerify', '1');
       } catch (e) {
         console.warn('Unable to set signup flag in storage', e);
       }
-      router.push('/sign-in');
+      router.push({ pathname: '/verify-email', params: { email } });
     } catch (error) {
       console.error('Error signing up:', error);
 
@@ -106,156 +101,121 @@ export default function SignUp() {
   };
 
   return (
-    <SafeAreaView className='flex h-full w-full flex-1 bg-background'>
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <VStack space='xl' className='h-full w-full justify-center p-6'>
-        <VStack space='md' className='w-full items-center'>
-        <Heading size='2xl'>{isGuest ? 'Register Your Account' : 'Sign Up'}</Heading>
-        <Text className='text-center'>
-          {isGuest
-            ? 'Finish registering your guest account with an email and password.'
-            : 'Create your account'}
-        </Text>
-      </VStack>
+    <Screen pad={0}>
+      <ScrollView
+        contentContainerStyle={styles.body}
+        keyboardShouldPersistTaps='handled'
+        showsVerticalScrollIndicator={false}
+      >
+        <BackButton onPress={() => router.push('/welcome')} />
 
-        {errorMessage ? (
-          <VStack className='w-full'>
-            <Text className='text-error-600 text-center text-sm bg-error-50 p-3 rounded-md'>
-              {errorMessage}
-            </Text>
-          </VStack>
-        ) : null}
+        <View style={styles.heading}>
+          <Text style={styles.title}>
+            {isGuest ? 'Register your account' : 'Start your first session'}
+          </Text>
+          <Text style={styles.subtitle}>
+            {isGuest
+              ? 'Finish registering your guest account with an email and password.'
+              : 'Takes under a minute. No plan to pick, no quiz.'}
+          </Text>
+        </View>
 
-        <VStack space='lg' className='w-full'>
-          <FormControl
-            size='md'
-            isDisabled={isLoading}
-            isReadOnly={false}
-            isRequired={true}
-            className='w-full'
-          >
-            <FormControlLabel>
-              <FormControlLabelText>First Name</FormControlLabelText>
-            </FormControlLabel>
-            <Input className='w-full' size='md' variant='outline'>
-              <InputField
-                type='text'
-                placeholder='Enter your first name'
+        <View style={styles.fields}>
+          <View style={styles.nameRow}>
+            <View style={styles.nameCell}>
+              <Field
+                label='First name'
+                placeholder='Alex'
                 value={firstName}
-                onChangeText={text => setFirstName(text)}
-                className='w-full'
+                onChangeText={setFirstName}
+                editable={!isLoading}
               />
-            </Input>
-          </FormControl>
-
-          <FormControl
-            size='md'
-            isDisabled={isLoading}
-            isReadOnly={false}
-            isRequired={true}
-            className='w-full'
-          >
-            <FormControlLabel>
-              <FormControlLabelText>Last Name</FormControlLabelText>
-            </FormControlLabel>
-            <Input className='w-full' size='md' variant='outline'>
-              <InputField
-                type='text'
-                placeholder='Enter your last name'
+            </View>
+            <View style={styles.nameCell}>
+              <Field
+                label='Last name'
+                placeholder='Rivera'
                 value={lastName}
-                onChangeText={text => setLastName(text)}
-                className='w-full'
+                onChangeText={setLastName}
+                editable={!isLoading}
               />
-            </Input>
-          </FormControl>
+            </View>
+          </View>
 
-          <FormControl
-            size='md'
-            isDisabled={isLoading}
-            isReadOnly={false}
-            isRequired={true}
-            className='w-full'
-          >
-            <FormControlLabel>
-              <FormControlLabelText>Email</FormControlLabelText>
-            </FormControlLabel>
-            <Input className='w-full' size='md' variant='outline'>
-              <InputField
-                type='text'
-                placeholder='Enter your email'
-                value={email}
-                onChangeText={text => setEmail(text)}
-                className='w-full'
-                keyboardType='email-address'
-                autoCapitalize='none'
-              />
-            </Input>
-          </FormControl>
+          <Field
+            label='Email'
+            placeholder='you@example.com'
+            value={email}
+            onChangeText={setEmail}
+            keyboardType='email-address'
+            autoCapitalize='none'
+            autoComplete='email'
+            editable={!isLoading}
+          />
+          <Field
+            label='Password'
+            placeholder='Enter your password'
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            editable={!isLoading}
+          />
+          <Field
+            label='Confirm password'
+            placeholder='Confirm your password'
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry
+            editable={!isLoading}
+            hint='Password must be at least 6 characters long.'
+          />
 
-          <FormControl
-            size='md'
-            isDisabled={isLoading}
-            isReadOnly={false}
-            isRequired={true}
-            className='w-full'
-          >
-            <FormControlLabel>
-              <FormControlLabelText>Password</FormControlLabelText>
-            </FormControlLabel>
-            <Input className='w-full' size='md' variant='outline'>
-              <InputField
-                type='password'
-                placeholder='Enter your password'
-                value={password}
-                onChangeText={text => setPassword(text)}
-                className='w-full'
-                secureTextEntry={true}
-              />
-            </Input>
-          </FormControl>
+          {!!errorMessage && <ErrorBanner message={errorMessage} />}
+        </View>
 
-          <FormControl
-            size='md'
-            isDisabled={isLoading}
-            isReadOnly={false}
-            isRequired={true}
-            className='w-full'
-          >
-            <FormControlLabel>
-              <FormControlLabelText>Confirm Password</FormControlLabelText>
-            </FormControlLabel>
-            <Input className='w-full' size='md' variant='outline'>
-              <InputField
-                type='password'
-                placeholder='Confirm your password'
-                value={confirmPassword}
-                onChangeText={text => setConfirmPassword(text)}
-                className='w-full'
-                secureTextEntry={true}
-              />
-            </Input>
-            <FormControlHelper>
-              <FormControlHelperText>
-                Password must be at least 6 characters long.
-              </FormControlHelperText>
-            </FormControlHelper>
-          </FormControl>
-        </VStack>
-
-        <VStack space='md' className='w-full'>
-          <Button
-            size='lg'
-            variant='solid'
-            action='primary'
-            className='w-full'
+        <View style={styles.actions}>
+          <PrimaryButton
+            label={isLoading ? 'Creating account…' : 'Create account'}
             onPress={handleSignUp}
-            isDisabled={isLoading}
-          >
-            <ButtonText>{isLoading ? 'Creating Account...' : 'Create Account'}</ButtonText>
-          </Button>
-        </VStack>
-      </VStack>
-      </TouchableWithoutFeedback>
-    </SafeAreaView>
+            loading={isLoading}
+          />
+          <Text style={styles.legal}>
+            By continuing you agree to Phoenix Soteria&apos;s terms and privacy policy.
+          </Text>
+        </View>
+      </ScrollView>
+    </Screen>
   );
 }
+
+const getStyles = (theme: any) =>
+  StyleSheet.create({
+    body: {
+      paddingHorizontal: 24,
+      paddingBottom: 32,
+    },
+    heading: { marginTop: 22, gap: 6 },
+    title: {
+      fontFamily: theme.font.family.display,
+      fontSize: 30,
+      lineHeight: 34,
+      letterSpacing: -0.9,
+      color: theme.colors.text,
+    },
+    subtitle: {
+      fontFamily: theme.font.family.body,
+      fontSize: 14,
+      color: theme.colors.subtext,
+    },
+    fields: { marginTop: 24, gap: 14 },
+    nameRow: { flexDirection: 'row', gap: 12 },
+    nameCell: { flex: 1 },
+    actions: { marginTop: 22, gap: 10 },
+    legal: {
+      textAlign: 'center',
+      fontFamily: theme.font.family.body,
+      fontSize: 11,
+      lineHeight: 17,
+      color: theme.colors.muted,
+    },
+  });

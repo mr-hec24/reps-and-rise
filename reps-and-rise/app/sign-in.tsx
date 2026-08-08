@@ -1,33 +1,47 @@
-import { Button, ButtonText } from '@/components/ui/button';
+import { Screen } from '@/components/Screen';
 import {
-  FormControl,
-  FormControlHelper,
-  FormControlHelperText,
-  FormControlLabel,
-  FormControlLabelText,
-} from '@/components/ui/form-control';
-import { Heading } from '@/components/ui/heading';
-import { Input, InputField } from '@/components/ui/input';
-import { Text } from '@/components/ui/text';
-import { VStack } from '@/components/ui/vstack';
+  BackButton,
+  ErrorBanner,
+  Field,
+  GhostButton,
+  PrimaryButton,
+  SecondaryButton,
+} from '@/components/ui-ember';
 import { useAuth } from '@/context/auth-provider';
-import { useRouter } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useThemeMode } from '@/theme/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Keyboard, SafeAreaView, TouchableWithoutFeedback } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Keyboard, StyleSheet, Text, TouchableWithoutFeedback, View } from 'react-native';
 
 export default function SignIn() {
   const router = useRouter();
   const { signIn, signInAsGuest } = useAuth();
+  const { theme } = useThemeMode();
+  const styles = getStyles(theme);
+
   const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSignIn = async () => {
+    setErrorMessage('');
+    if (!email.includes('@') || password.length < 6) {
+      setErrorMessage('Enter an email and a password of 6+ characters.');
+      return;
+    }
+    setIsLoading(true);
     try {
       await signIn(email, password);
     } catch (error) {
       console.error('Error signing in:', error);
+      setErrorMessage(
+        error instanceof Error ? error.message : 'Could not sign in. Please try again.'
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -55,102 +69,99 @@ export default function SignIn() {
   }, []);
 
   return (
-    <SafeAreaView className='flex h-full w-full flex-1 bg-background'>
+    <Screen pad={24}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <VStack space='xl' className='h-full w-full justify-center p-6'>
-        <VStack space='md' className='w-full items-center'>
-          <Heading size='2xl'>Sign In</Heading>
-          <Text className='text-center'>Sign in to your account</Text>
-        </VStack>
+        <View style={styles.body}>
+          <BackButton onPress={() => router.push('/welcome')} />
 
-          {successMessage ? (
-            <VStack className='w-full'>
-              <Text className='text-success-700 text-center text-sm bg-success-50 p-3 rounded-md'>
-                {successMessage}
-              </Text>
-            </VStack>
-          ) : null}
+          <View style={styles.heading}>
+            <Text style={styles.title}>Welcome back</Text>
+            <Text style={styles.subtitle}>Pick up where the last session left off.</Text>
+          </View>
 
-        <VStack space='lg' className='w-full'>
-          <FormControl
-            size='md'
-            isDisabled={false}
-            isReadOnly={false}
-            isRequired={true}
-            className='w-full'
-          >
-            <FormControlLabel>
-              <FormControlLabelText>Email</FormControlLabelText>
-            </FormControlLabel>
-            <Input className='w-full' size='md' variant='outline'>
-              <InputField
-                type='text'
-                placeholder='Enter your email'
-                value={email}
-                onChangeText={text => setEmail(text)}
-                className='w-full'
-                autoCapitalize='none'
-              />
-            </Input>
-          </FormControl>
+          {!!successMessage && (
+            <View style={styles.notice}>
+              <Text style={styles.noticeText}>{successMessage}</Text>
+            </View>
+          )}
 
-          <FormControl
-            size='md'
-            isDisabled={false}
-            isReadOnly={false}
-            isRequired={true}
-            className='w-full'
-          >
-            <FormControlLabel>
-              <FormControlLabelText>Password</FormControlLabelText>
-            </FormControlLabel>
-            <Input className='w-full' size='md' variant='outline'>
-              <InputField
-                type='password'
-                placeholder='Enter your password'
-                value={password}
-                onChangeText={text => setPassword(text)}
-                className='w-full'
-                secureTextEntry={true}
-              />
-            </Input>
-            <FormControlHelper>
-              <FormControlHelperText>Must be at least 6 characters.</FormControlHelperText>
-            </FormControlHelper>
-          </FormControl>
-        </VStack>
+          <View style={styles.fields}>
+            <Field
+              label='Email'
+              placeholder='you@example.com'
+              value={email}
+              onChangeText={setEmail}
+              keyboardType='email-address'
+              autoCapitalize='none'
+              autoComplete='email'
+            />
+            <Field
+              label='Password'
+              placeholder='At least 6 characters'
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
+            {!!errorMessage && <ErrorBanner message={errorMessage} />}
+          </View>
 
-        <VStack space='md' className='w-full'>
-          <Button
-            size='lg'
-            variant='solid'
-            action='primary'
-            className='w-full'
-            onPress={handleSignIn}
-          >
-            <ButtonText>Sign In</ButtonText>
-          </Button>
-          <Button
-            size='lg'
-            variant='outline'
-            action='secondary'
-            className='w-full'
-            onPress={() => router.push('/forgot-password')}
-          >
-            <ButtonText>Forgot Password?</ButtonText>
-          </Button>
-          <Button
-            size='lg'
-            variant='outline'
-            action='secondary'
-            className='w-full'
-            onPress={handleGuestSignIn}
-          >
-            <ButtonText>Continue as Guest</ButtonText>
-          </Button>
-        </VStack>
-      </VStack>
+          <View style={styles.actions}>
+            <PrimaryButton label='Sign in' onPress={handleSignIn} loading={isLoading} />
+            <GhostButton label='Forgot password?' onPress={() => router.push('/forgot-password')} />
+          </View>
+
+          <View style={styles.spacer} />
+
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+          <SecondaryButton label='Continue as guest' onPress={handleGuestSignIn} />
+        </View>
       </TouchableWithoutFeedback>
-    </SafeAreaView>
+    </Screen>
   );
 }
+
+const getStyles = (theme: any) =>
+  StyleSheet.create({
+    body: { flex: 1 },
+    heading: { marginTop: 26, gap: 6 },
+    title: {
+      fontFamily: theme.font.family.display,
+      fontSize: 30,
+      lineHeight: 34,
+      letterSpacing: -0.9,
+      color: theme.colors.text,
+    },
+    subtitle: {
+      fontFamily: theme.font.family.body,
+      fontSize: 14,
+      color: theme.colors.subtext,
+    },
+    notice: {
+      marginTop: 20,
+      padding: 14,
+      borderRadius: 13,
+      backgroundColor: theme.colors.accentSoft,
+      borderWidth: 1,
+      borderColor: theme.colors.accentSoftBorder,
+    },
+    noticeText: {
+      fontFamily: theme.font.family.bodyMedium,
+      fontSize: 13,
+      lineHeight: 19,
+      color: theme.colors.text,
+    },
+    fields: { marginTop: 28, gap: 16 },
+    actions: { marginTop: 24, gap: 4 },
+    spacer: { flex: 1, minHeight: 24 },
+    divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+    dividerLine: { flex: 1, height: 1, backgroundColor: theme.colors.border },
+    dividerText: {
+      fontFamily: theme.font.family.body,
+      fontSize: 11,
+      color: theme.colors.muted,
+    },
+  });

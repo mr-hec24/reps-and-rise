@@ -1,19 +1,10 @@
-import { Button, ButtonText } from '@/components/ui/button';
-import {
-  FormControl,
-  FormControlHelper,
-  FormControlHelperText,
-  FormControlLabel,
-  FormControlLabelText,
-} from '@/components/ui/form-control';
-import { Heading } from '@/components/ui/heading';
-import { Input, InputField } from '@/components/ui/input';
-import { Text } from '@/components/ui/text';
-import { VStack } from '@/components/ui/vstack';
+import { Screen } from '@/components/Screen';
+import { ErrorBanner, Field, PrimaryButton } from '@/components/ui-ember';
 import { supabase } from '@/lib/supabase';
+import { useThemeMode } from '@/theme/ThemeContext';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Linking, SafeAreaView, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import { Keyboard, Linking, StyleSheet, Text, TouchableWithoutFeedback, View } from 'react-native';
 
 function parseParamsFromUrl(url: string) {
   try {
@@ -24,8 +15,8 @@ function parseParamsFromUrl(url: string) {
       fragmentIndex >= 0
         ? url.substring(fragmentIndex + 1)
         : queryIndex >= 0
-        ? url.substring(queryIndex + 1)
-        : '';
+          ? url.substring(queryIndex + 1)
+          : '';
 
     const params: Record<string, string> = {};
     paramsString.split('&').forEach(pair => {
@@ -40,6 +31,8 @@ function parseParamsFromUrl(url: string) {
 
 export default function ResetPassword() {
   const router = useRouter();
+  const { theme } = useThemeMode();
+  const styles = getStyles(theme);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [password, setPassword] = useState('');
@@ -69,7 +62,10 @@ export default function ResetPassword() {
 
       try {
         // Exchange the token for a session locally so we can call updateUser
-        await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken || '' });
+        await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken || '',
+        });
         setReadyToReset(true);
       } catch (e: any) {
         console.error('Error setting session from deep link:', e);
@@ -128,66 +124,71 @@ export default function ResetPassword() {
   };
 
   return (
-    <SafeAreaView className="flex h-full w-full flex-1 bg-background">
+    <Screen pad={24}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <VStack space="xl" className="h-full w-full justify-center p-6">
-          <VStack space="md" className="w-full items-center">
-            <Heading size="2xl">Reset Password</Heading>
-            <Text className="text-center">Set a new password for your account</Text>
-          </VStack>
+        <View style={styles.body}>
+          <View style={styles.heading}>
+            <Text style={styles.title}>Reset password</Text>
+            <Text style={styles.subtitle}>Set a new password for your account.</Text>
+          </View>
 
-          {loading ? (
-            <Text className="text-center">Initializing...</Text>
-          ) : errorMessage ? (
-            <Text className="text-error-600 text-center text-sm bg-error-50 p-3 rounded-md">
-              {errorMessage}
-            </Text>
-          ) : null}
+          {loading && <Text style={styles.status}>Initializing…</Text>}
+          {!loading && !!errorMessage && (
+            <View style={styles.feedback}>
+              <ErrorBanner message={errorMessage} />
+            </View>
+          )}
 
-          {readyToReset ? (
-            <VStack space="lg" className="w-full">
-              <FormControl size="md" isDisabled={loading} isReadOnly={false} isRequired className="w-full">
-                <FormControlLabel>
-                  <FormControlLabelText>New Password</FormControlLabelText>
-                </FormControlLabel>
-                <Input className="w-full" size="md" variant="outline">
-                  <InputField
-                    type="password"
-                    placeholder="Enter your new password"
-                    value={password}
-                    onChangeText={text => setPassword(text)}
-                    className="w-full"
-                    secureTextEntry
-                  />
-                </Input>
-                <FormControlHelper>
-                  <FormControlHelperText>Must be at least 6 characters.</FormControlHelperText>
-                </FormControlHelper>
-              </FormControl>
-
-              <FormControl size="md" isDisabled={loading} isReadOnly={false} isRequired className="w-full">
-                <FormControlLabel>
-                  <FormControlLabelText>Confirm Password</FormControlLabelText>
-                </FormControlLabel>
-                <Input className="w-full" size="md" variant="outline">
-                  <InputField
-                    type="password"
-                    placeholder="Confirm your new password"
-                    value={confirmPassword}
-                    onChangeText={text => setConfirmPassword(text)}
-                    className="w-full"
-                    secureTextEntry
-                  />
-                </Input>
-              </FormControl>
-
-              <Button size="lg" variant="solid" action="primary" className="w-full" onPress={handleSubmit}>
-                <ButtonText>Set New Password</ButtonText>
-              </Button>
-            </VStack>
-          ) : null}
-        </VStack>
+          {readyToReset && (
+            <View style={styles.fields}>
+              <Field
+                label='New password'
+                placeholder='Enter your new password'
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                editable={!loading}
+                hint='Must be at least 6 characters.'
+              />
+              <Field
+                label='Confirm password'
+                placeholder='Confirm your new password'
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry
+                editable={!loading}
+              />
+              <PrimaryButton label='Set new password' onPress={handleSubmit} loading={loading} />
+            </View>
+          )}
+        </View>
       </TouchableWithoutFeedback>
-    </SafeAreaView>
+    </Screen>
   );
 }
+
+const getStyles = (theme: any) =>
+  StyleSheet.create({
+    body: { flex: 1, justifyContent: 'center' },
+    heading: { gap: 6, marginBottom: 26 },
+    title: {
+      fontFamily: theme.font.family.display,
+      fontSize: 30,
+      lineHeight: 34,
+      letterSpacing: -0.9,
+      color: theme.colors.text,
+    },
+    subtitle: {
+      fontFamily: theme.font.family.body,
+      fontSize: 14,
+      lineHeight: 22,
+      color: theme.colors.subtext,
+    },
+    status: {
+      fontFamily: theme.font.family.body,
+      fontSize: 14,
+      color: theme.colors.subtext,
+    },
+    feedback: { marginBottom: 16 },
+    fields: { gap: 16 },
+  });
