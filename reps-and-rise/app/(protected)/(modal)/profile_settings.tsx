@@ -5,6 +5,7 @@ import { Heading } from '@/components/ui/heading';
 import { Input, InputField } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
+import { useRouter } from 'expo-router';
 import { useAuth } from '@/context/auth-provider';
 import { useUser } from '@/context/user-provider';
 import { pickImage } from '@/lib/image-upload';
@@ -19,7 +20,8 @@ import { usePostHog } from 'posthog-react-native';
 
 export default function ProfileScreen() {
   const posthog = usePostHog();
-  const { signOut } = useAuth();
+  const router = useRouter();
+  const { signOut, isGuest } = useAuth();
   const { theme } = useThemeMode();
   const styles = getStyles(theme);
   const {
@@ -182,6 +184,30 @@ export default function ProfileScreen() {
             <Text style={styles.bodyTextCenter}>Manage your account information</Text>
           </VStack>
 
+          {isGuest && (
+            <VStack space='md' className='w-full rounded-xl border border-primary-200 bg-primary-50 p-4'>
+              <Text style={styles.upgradeHeading}>Upgrade your account</Text>
+              <Text style={styles.upgradeBody}>
+                Register with an email to unlock additional benefits and keep your progress safe longer.
+              </Text>
+              <VStack space='sm' className='w-full'>
+                <Text style={styles.upgradeBullet}>• Data is saved more reliably and restored across devices.</Text>
+                <Text style={styles.upgradeBullet}>• Your app progress is preserved longer term.</Text>
+                <Text style={styles.upgradeBullet}>• You can recover your account if you sign out or reinstall.</Text>
+                <Text style={styles.upgradeBullet}>• You get a consistent identity for future features.</Text>
+              </VStack>
+              <Button
+                size='md'
+                variant='solid'
+                action='secondary'
+                className='mt-4 w-full'
+                onPress={() => router.push('/sign-up?upgrade=true')}
+              >
+                <ButtonText>Register your account</ButtonText>
+              </Button>
+            </VStack>
+          )}
+
           {/* User Avatar */}
           <VStack space='md' className='w-full items-center'>
             <TouchableOpacity
@@ -338,8 +364,7 @@ const getStyles = (theme: any) =>
     },
     labelText: {
       color: theme.colors.text
-    }
-    ,
+    },
     headerRow: {
       paddingTop: theme.spacing.sm,
       paddingHorizontal: theme.spacing.md,
@@ -360,6 +385,21 @@ const getStyles = (theme: any) =>
       shadowOpacity: 0.15,
       shadowRadius: 3.84,
       elevation: 4,
-    }
+    },
+    upgradeHeading: {
+      color: theme.colors.primary,
+      fontSize: 18,
+      fontWeight: '700',
+    },
+    upgradeBody: {
+      color: theme.colors.text,
+      fontSize: 14,
+      lineHeight: 20,
+    },
+    upgradeBullet: {
+      color: theme.colors.text,
+      fontSize: 14,
+      lineHeight: 20,
+    },
   });
 

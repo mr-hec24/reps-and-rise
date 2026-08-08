@@ -30,16 +30,22 @@ const getPlatformStorage = () => {
 type AuthState = {
   initialized: boolean;
   session: Session | null;
+  isGuest: boolean;
   signUp: (email: string, password: string, firstName?: string, lastName?: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
+  signInAsGuest: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthState>({
   initialized: false,
   session: null,
+  isGuest: false,
   signUp: async () => {},
   signIn: async () => {},
+  signInAsGuest: async () => {},
+  resetPassword: async () => {},
   signOut: async () => {},
 });
 
@@ -48,32 +54,70 @@ export const useAuth = () => useContext(AuthContext);
 export function AuthProvider({ children }: PropsWithChildren) {
   const [initialized, setInitialized] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
+  const [isGuest, setIsGuest] = useState(false);
   const router = useRouter();
 
   const signUp = async (email: string, password: string, firstName?: string, lastName?: string) => {
     try {
       console.log('Attempting to sign up with email:', email);
 
-      // Add timeout to prevent hanging
-      const signUpPromise = supabase.auth.signUp({
-        email,
-        password,
-        options: {
+      const sessionResult = await supabase.auth.getSession();
+      const currentSession = sessionResult?.data?.session;
+
+      // Only treat this as an anonymous->registered upgrade when we have an
+      // active anonymous session. Previously we relied on `isGuest` which
+      // could be true even when the local session expired, causing
+      // `updateUser` to be called without an auth session and producing
+      // "Auth session missing!" errors from supabase-js.
+      const isUpgradingGuest = Boolean(
+        currentSession && !currentSession.user?.email
+      );
+
+      let data: any;
+      let error: any;
+
+      if (isUpgradingGuest) {
+        console.log('Upgrading anonymous guest to a registered account');
+
+        const updatePromise = supabase.auth.updateUser({
+          email,
+          password,
           data: {
             first_name: firstName,
             last_name: lastName,
           },
-        },
-      });
+        });
 
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(
-          () => reject(new Error('Sign up timeout - please check your network connection')),
-          10000
-        )
-      );
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error('Sign up timeout - please check your network connection')),
+            10000
+          )
+        );
 
-      const { data, error } = (await Promise.race([signUpPromise, timeoutPromise])) as any;
+        ({ data, error } = (await Promise.race([updatePromise, timeoutPromise])) as any);
+      } else {
+        // Add timeout to prevent hanging
+        const signUpPromise = supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              first_name: firstName,
+              last_name: lastName,
+            },
+          },
+        });
+
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error('Sign up timeout - please check your network connection')),
+            10000
+          )
+        );
+
+        ({ data, error } = (await Promise.race([signUpPromise, timeoutPromise])) as any);
+      }
 
       if (error) {
         console.error('Error signing up:', error);
@@ -91,21 +135,46 @@ export function AuthProvider({ children }: PropsWithChildren) {
           throw new Error('Password is too weak. Please choose a stronger password.');
         } else if (error.message?.includes('Invalid email')) {
           throw new Error('Invalid email address. Please enter a valid email.');
+        } else if (error.message?.includes('email rate limit exceeded')) {
+          throw new Error(
+            'You have made too many registration attempts for this email. Please wait a few minutes and try again.'
+          );
         } else {
           throw new Error(error.message || 'An error occurred during sign up. Please try again.');
         }
       }
 
+      if (isUpgradingGuest) {
+        if (error) {
+          throw error;
+        }
+
+        setIsGuest(false);
+
+        const sessionResult = await supabase.auth.getSession();
+        if ('data' in sessionResult && sessionResult.data?.session) {
+          setSession(sessionResult.data.session);
+        }
+
+        console.log('Guest upgraded to registered account successfully');
+        return;
+      }
+
       if (data.session) {
         setSession(data.session);
+        setIsGuest(false);
         console.log('User signed up successfully:', data.user);
       } else {
         console.log('No session returned from sign up - user may need to verify email');
         // Some Supabase configurations require email verification
         if (data.user && !data.session) {
-          throw new Error(
-            'Account created successfully. Please check your email to verify your account before signing in.'
+          // Account was created but no session was returned (email verification required)
+          // Treat this as a successful signup rather than an error so the UI can
+          // inform the user and redirect them to the sign-in page.
+          console.log(
+            'Account created successfully (email verification may be required).'
           );
+          return;
         }
       }
     } catch (error) {
@@ -152,6 +221,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
       if (data.session) {
         setSession(data.session);
+        setIsGuest(false);
         console.log('User signed in successfully');
       } else {
         console.log('No session returned from sign in');
@@ -163,12 +233,102 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   };
 
+  const signInAsGuest = async () => {
+    try {
+      console.log('Attempting anonymous sign in...');
+
+      // Use Supabase's built-in anonymous authentication
+      const { data, error } = await supabase.auth.signInAnonymously();
+
+      if (error) {
+        console.error('Error signing in anonymously:', error);
+        if (error.message?.includes('Network request failed')) {
+          throw new Error(
+            'Network connection failed. Please check your internet connection and try again.'
+          );
+        }
+        throw new Error(error.message || 'Unable to create guest session. Please try again.');
+      }
+
+      if (data.session) {
+        setSession(data.session);
+        // Anonymous users have no email, so we detect guest status this way
+        setIsGuest(!data.session.user?.email);
+        console.log('Anonymous session created successfully');
+        return;
+      }
+
+      throw new Error('Anonymous sign in failed - no session created.');
+    } catch (error) {
+      console.error('Error during anonymous sign in:', error);
+      throw error;
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    try {
+      console.log('Requesting password reset for:', email);
+
+      const cooldownSeconds = 300;
+      const { data: cooldownData, error: cooldownError } = await supabase
+        .rpc('can_request_password_reset', {
+          p_email: email,
+          p_cooldown_seconds: cooldownSeconds,
+        });
+
+      if (cooldownError) {
+        console.error('Error checking password reset cooldown:', cooldownError);
+        throw new Error(
+          'Unable to verify password reset cooldown. Please try again in a few minutes.'
+        );
+      }
+
+      const cooldownRow = Array.isArray(cooldownData) ? cooldownData[0] : cooldownData;
+      if (!cooldownRow?.allowed) {
+        const retrySeconds = cooldownRow?.retry_seconds ?? cooldownSeconds;
+        throw new Error(
+          `You can request another reset email in ${retrySeconds} second${
+            retrySeconds === 1 ? '' : 's'
+          }.`
+        );
+      }
+
+      const redirectTo = process.env.EXPO_PUBLIC_SUPABASE_PASSWORD_RESET_REDIRECT_URL;
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: redirectTo || undefined,
+      });
+
+      if (redirectTo) {
+        console.log('Password reset redirectTo:', redirectTo);
+      }
+      if (error) {
+        console.error('Error sending password reset email:', error);
+        if (error.message?.includes('Network request failed')) {
+          throw new Error(
+            'Network connection failed. Please check your internet connection and try again.'
+          );
+        } else if (error.message?.includes('email rate limit exceeded')) {
+          throw new Error(
+            'Too many password reset attempts. Please wait a few minutes before trying again.'
+          );
+        }
+        throw new Error(error.message || 'Unable to send password reset instructions. Please try again.');
+      }
+
+      console.log('Password reset email sent successfully', data);
+    } catch (error) {
+      console.error('Error during reset password request:', error);
+      throw error;
+    }
+  };
+
   const signOut = async () => {
     try {
       console.log('Starting sign out process...');
 
       // Always clear the session locally first to ensure the user is logged out
       setSession(null);
+      setIsGuest(false);
 
       // Manually clear all Supabase-related storage to prevent restoration on refresh
       try {
@@ -236,6 +396,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
           } else if (session) {
             console.log('Found existing session');
             setSession(session);
+            // Anonymous users in Supabase have no email
+            setIsGuest(!session.user?.email);
           } else {
             console.log('No existing session found');
           }
@@ -254,6 +416,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
               session ? 'User logged in' : 'User logged out'
             );
             setSession(session);
+            // Anonymous users in Supabase have no email
+            setIsGuest(!session?.user?.email);
           });
 
           // Cleanup function (but don't block on this either)
@@ -294,8 +458,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
       value={{
         initialized,
         session,
+        isGuest,
         signUp,
         signIn,
+        signInAsGuest,
+        resetPassword,
         signOut,
       }}
     >

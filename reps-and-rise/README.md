@@ -102,6 +102,20 @@ This will:
 - Configure storage policies for avatar uploads
 - Set up automatic profile creation triggers
 
+#### Add Per-Account Password Reset Cooldown (Recommended)
+
+To prevent repeated password reset requests for the same account across devices, run the additional SQL script:
+
+1. In the Supabase SQL Editor, open `scripts/password-reset-cooldown.sql`
+2. Run the script
+
+This creates:
+
+- `public.password_reset_requests`
+- `public.can_request_password_reset(email, cooldown_seconds)` RPC
+
+The app is already wired to call this RPC before sending password reset emails.
+
 #### Verify Storage Setup
 
 1. Go to **Storage** in your Supabase dashboard
