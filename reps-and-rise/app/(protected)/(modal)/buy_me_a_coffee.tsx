@@ -3,6 +3,8 @@ import { openDonationCheckout } from '@/lib/donations';
 import { useThemeMode } from '@/theme/ThemeContext';
 import { useCallback, useState } from 'react';
 import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { usePostHog } from 'posthog-react-native';
 
@@ -44,6 +46,7 @@ export default function BuyMeACoffeeModal() {
   const posthog = usePostHog();
   const { theme } = useThemeMode();
   const styles = getStyles(theme);
+  const router = useRouter();
   const [selectedTier, setSelectedTier] = useState<DonationTier>(tiers[1]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -92,6 +95,15 @@ export default function BuyMeACoffeeModal() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
+        <TouchableOpacity
+          onPress={() => {
+            posthog.capture('button_click', { screen: 'buy_me_a_coffee_modal', button: 'back' });
+            router.back();
+          }}
+          style={styles.backButtonCircle}
+        >
+          <FontAwesome name="arrow-left" size={18} color={'#fff'} />
+        </TouchableOpacity>
         <SectionHeader title='Buy Me a Coffee' />
         <Text style={styles.subtitle}>Choose a donation tier to support development.</Text>
 
@@ -193,6 +205,22 @@ const getStyles = (theme: any) =>
       color: theme.colors.text,
       fontSize: theme.font.small,
       lineHeight: 21,
+    },
+    backButtonCircle: {
+      position: 'absolute',
+      bottom: theme.spacing.md,
+      left: theme.spacing.md,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: theme.colors.primary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.15,
+      shadowRadius: 3.84,
+      elevation: 4,
     },
     cardTitle: {
       color: theme.colors.text,
