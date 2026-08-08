@@ -1,7 +1,13 @@
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { useThemeMode } from '@/theme/ThemeContext';
+import type { ReactNode } from 'react';
 
-export function Card({children, style}) {
+interface CardProps {
+    children: ReactNode;
+    style?: StyleProp<ViewStyle>;
+}
+
+export function Card({children, style}: CardProps) {
     const { theme } = useThemeMode();
     const styles = getStyles(theme);
 

@@ -12,6 +12,8 @@ import { useThemeMode } from '@/theme/ThemeContext';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, SafeAreaView, StyleSheet, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Row } from '@/components/Row';
 import { useFocusEffect } from '@react-navigation/native';
 import { usePostHog } from 'posthog-react-native';
 
@@ -172,7 +174,9 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-        <VStack space='xl' className='h-full w-full justify-start p-6 pt-12'>
+      <Row style={styles.headerRow}>
+      </Row>
+      <VStack space='xl' className='h-full w-full justify-start p-6 pt-4'>
           <VStack space='md' className='w-full items-center'>
             <Heading size='2xl' style={styles.heading}>Profile</Heading>
             <Text style={styles.bodyTextCenter}>Manage your account information</Text>
@@ -335,4 +339,27 @@ const getStyles = (theme: any) =>
     labelText: {
       color: theme.colors.text
     }
+    ,
+    headerRow: {
+      paddingTop: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.md,
+      alignItems: 'flex-start',
+    },
+    backButtonCircle: {
+      position: 'absolute',
+      bottom: theme.spacing.md,
+      left: theme.spacing.md,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: theme.colors.primary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.15,
+      shadowRadius: 3.84,
+      elevation: 4,
+    }
   });
+

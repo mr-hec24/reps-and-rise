@@ -59,7 +59,7 @@ export async function scheduleDailyReminder(hour: number, minute: number) {
       body: "Log your workout for today",
     },
     trigger: {
-      type: "daily",
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
       hour,
       minute,
       channelId: "default" // required on Android
@@ -80,7 +80,7 @@ export async function scheduleStreakReminder(streak: number) {
       body: `You're on a ${streak}-day streak. Don't stop now.`,
     },
     trigger: {
-      type: "daily",
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
       hour: 20,
       minute: 0,
       channelId: "default",
@@ -97,7 +97,7 @@ export async function scheduleWeeklyReminders(days: number[], hour: number, minu
                 body: "Log your workout for today",
             },
             trigger: {
-                type: "daily",
+                type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
                 weekday,
                 hour,
                 minute,

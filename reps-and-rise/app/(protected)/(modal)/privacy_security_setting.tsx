@@ -3,7 +3,10 @@ import { useThemeMode } from '@/theme/ThemeContext';
 import { useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { usePostHog } from 'posthog-react-native';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { useRouter } from 'expo-router';
+import { Row } from '@/components/Row';
 
 type PolicySection = {
   title: string;
@@ -124,6 +127,7 @@ export default function PrivacySecuritySettings() {
   const posthog = usePostHog();
   const { theme } = useThemeMode();
   const styles = getStyles(theme);
+  const router = useRouter();
 
   useFocusEffect(
     useCallback(() => {
@@ -134,6 +138,15 @@ export default function PrivacySecuritySettings() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
+        <TouchableOpacity
+          onPress={() => {
+            posthog.capture('button_click', { screen: 'privacy_security_modal', button: 'back' });
+            router.back();
+          }}
+          style={styles.backButtonCircle}
+        >
+          <FontAwesome name="arrow-left" size={18} color={'#fff'} />
+        </TouchableOpacity>
         <SectionHeader title='Privacy & Security' />
         <Text style={styles.effectiveDate}>Effective Date: March 23, 2026</Text>
 
@@ -203,4 +216,20 @@ const getStyles = (theme: any) =>
       lineHeight: 20,
       color: theme.colors.text,
     },
+    backButtonCircle: {
+      position: 'absolute',
+      bottom: theme.spacing.md,
+      left: theme.spacing.md,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: theme.colors.primary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.15,
+      shadowRadius: 3.84,
+      elevation: 4,
+    }
   });

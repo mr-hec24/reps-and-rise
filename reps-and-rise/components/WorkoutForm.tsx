@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
@@ -7,31 +7,55 @@ import { FontAwesome } from "@expo/vector-icons";
 import ExerciseInputCard from './ExerciseInputCard';
 import { usePostHog } from 'posthog-react-native';
 
+export interface ExerciseSet {
+  sets: string;
+  reps: string;
+  weight: string;
+  _rowId?: string;
+}
+
+export interface WorkoutFormValues {
+  activity_id?: string;
+  activity_name?: string;
+  weight?: string;
+  reps?: string;
+  sets: ExerciseSet[];
+}
+
+interface WorkoutFormProps {
+  initialValues?: WorkoutFormValues | WorkoutFormValues[];
+  onSubmit: (form: WorkoutFormValues | WorkoutFormValues[]) => Promise<void> | void;
+  submitLabel?: string;
+  editable?: boolean;
+}
 
 export default function WorkoutForm({
   initialValues,
   onSubmit,
   submitLabel = "Save",
   editable = true,
-}) {
+}: WorkoutFormProps) {
   const posthog = usePostHog();
   const [isEditable, setIsEditable] = useState(editable);
-  const [exercises, setExercises] = useState<any[]>(() => {
+  const [exercises, setExercises] = useState<WorkoutFormValues[]>(() => {
     if (Array.isArray(initialValues)) {
-      return initialValues.length > 0 ? initialValues : [{ activity_id: '', activity_name: '', sets: [{ sets: '', reps: '', weight: '' }] }];
+      return initialValues.length > 0
+        ? initialValues
+        : [{ activity_id: '', activity_name: '', sets: [{ sets: '', reps: '', weight: '' }] }];
     }
+
     if (initialValues && typeof initialValues === 'object') {
-      // Migrate old single exercise format to array
       return [{
         activity_id: initialValues.activity_id || '',
         activity_name: initialValues.activity_name || '',
         sets: [{
-          sets: initialValues.sets || '',
-          reps: initialValues.reps || '',
-          weight: initialValues.weight || ''
+          sets: initialValues.sets?.[0]?.sets || '',
+          reps: initialValues.sets?.[0]?.reps || '',
+          weight: initialValues.sets?.[0]?.weight || ''
         }]
       }];
     }
+
     return [{ activity_id: '', activity_name: '', sets: [{ sets: '', reps: '', weight: '' }] }];
   });
   const [successMessage, setSuccessMessage] = useState("");
@@ -82,9 +106,9 @@ export default function WorkoutForm({
             key={idx}
             index={idx}
             exercise={ex}
-            allExercises={exercises as any}
+            allExercises={exercises}
             editable={isEditable}
-            onUpdate={isEditable ? (updated: any) => {
+            onUpdate={isEditable ? (updated: WorkoutFormValues) => {
               const newEx = [...exercises];
               newEx[idx] = updated;
               setExercises(newEx);

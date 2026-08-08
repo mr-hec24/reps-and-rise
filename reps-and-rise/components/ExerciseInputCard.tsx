@@ -8,13 +8,35 @@ import { FontAwesome } from "@expo/vector-icons";
 import { useActivities } from "@/context/activity-provider";
 import { usePostHog } from 'posthog-react-native';
 
-export default function ExerciseInputCard({ exercise, onUpdate, onRemove, index, allExercises = [], editable = true }: any) {
+interface ExerciseSet {
+  sets: string;
+  reps: string;
+  weight: string;
+  _rowId?: string;
+}
+
+interface ExerciseInput {
+  activity_id?: string;
+  activity_name?: string;
+  sets: ExerciseSet[];
+}
+
+interface ExerciseInputCardProps {
+  exercise: ExerciseInput;
+  onUpdate?: (exercise: ExerciseInput) => void;
+  onRemove?: () => void;
+  index: number;
+  allExercises: ExerciseInput[];
+  editable?: boolean;
+}
+
+export default function ExerciseInputCard({ exercise, onUpdate, onRemove, index, allExercises = [], editable = true }: ExerciseInputCardProps) {
   const posthog = usePostHog();
   const { theme } = useThemeMode();
   const styles = getStyles(theme);
   const [localExercise, setLocalExercise] = useState(exercise);
   const [activityInput, setActivityInput] = useState(exercise?.activity_name || '');
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<{ id: string; name: string }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [duplicateError, setDuplicateError] = useState('');
   const { activities, loading } = useActivities();
@@ -28,9 +50,9 @@ export default function ExerciseInputCard({ exercise, onUpdate, onRemove, index,
   const totalWeight = localExercise.sets.reduce((sum, set) => sum + (parseFloat(set.weight) || 0), 0);
   const averageWeight = localExercise.sets.length > 0 ? (totalWeight / localExercise.sets.length).toFixed(1) : '0';
 
-  const updateExercise = (updated) => {
+  const updateExercise = (updated: ExerciseInput) => {
     setLocalExercise(updated);
-    onUpdate(updated);
+    onUpdate?.(updated);
   };
 
   const addSet = () => {
@@ -43,7 +65,7 @@ export default function ExerciseInputCard({ exercise, onUpdate, onRemove, index,
     updateExercise({ ...localExercise, sets: newSets });
   };
 
-  const removeSet = (index) => {
+  const removeSet = (index: number) => {
     if (localExercise.sets.length > 1) {
       const newSets = localExercise.sets.filter((_, i) => i !== index);
       posthog.capture('set_deleted', {
@@ -55,14 +77,14 @@ export default function ExerciseInputCard({ exercise, onUpdate, onRemove, index,
     }
   };
 
-  const updateSet = (index, key, value) => {
+  const updateSet = (index: number, key: keyof ExerciseSet, value: string) => {
     const newSets = localExercise.sets.map((set, i) =>
       i === index ? { ...set, [key]: value } : set
     );
     updateExercise({ ...localExercise, sets: newSets });
   };
 
-  const handleActivitySearch = (text) => {
+  const handleActivitySearch = (text: string) => {
     setActivityInput(text);
     if (text.length > 0) {
       const filtered = activities
@@ -76,7 +98,7 @@ export default function ExerciseInputCard({ exercise, onUpdate, onRemove, index,
     }
   };
 
-  const selectActivity = (activityId, activityName) => {
+  const selectActivity = (activityId: string, activityName: string) => {
     // Check if this exercise is already in the workout (excluding current card)
     const isDuplicate = allExercises.some(
       (ex, idx) => ex.activity_id === activityId && idx !== index

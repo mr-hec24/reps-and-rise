@@ -1,23 +1,34 @@
-import React from 'react';
-import { SafeAreaView, View } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { SafeAreaView, View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import WorkoutForm from '@/components/WorkoutForm';
+import WorkoutForm, { WorkoutFormValues } from '@/components/WorkoutForm';
 import { SectionHeader } from '@/components/SectionHeader';
-import { TouchableOpacity } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
+
+type DayWorkoutSet = WorkoutFormValues['sets'][number] & { _rowId?: string };
+import DateTimePicker from '@react-native-community/datetimepicker';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useThemeMode } from '@/theme/ThemeContext';
-import { StyleSheet } from 'react-native';
 import { Row } from '@/components/Row';
 import { useWorkoutStore } from '@/store/globalStore';
 import { usePostHog } from 'posthog-react-native';
-import { useCallback } from 'react';
+import dayjs from 'dayjs';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function DayWorkoutView() {
     const posthog = usePostHog();
     const router = useRouter();
     const params = useLocalSearchParams();
     const { date, workouts } = params;
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const insets = useSafeAreaInsets();
+    const parsedRouteDate = React.useMemo(() => {
+        if (!date) return null;
+        const dateValue = Array.isArray(date) ? date[0] : date;
+        const parsed = dayjs(dateValue, ['YYYY-MM-DD', 'MMMM D, YYYY', 'MMMM DD, YYYY', 'MM/DD/YYYY', 'YYYY/MM/DD'], true);
+        return parsed.isValid() ? parsed.toDate() : null;
+    }, [date]);
+    const [sessionDate, setSessionDate] = useState<Date>(parsedRouteDate ?? new Date());
     const { theme } = useThemeMode();
     const styles = getStyles(theme);
     const storeAddWorkout = useWorkoutStore((state: any) => state.addWorkout);
@@ -39,7 +50,9 @@ export default function DayWorkoutView() {
     // Transform workout data to match WorkoutForm expected format
     const displayData = workoutData.length > 0 ? transformWorkoutsToExercises(workoutData) : [];
 
-    const handleSubmit = async (submittedExercises: any[]) => {
+    const handleSubmit = async (submittedExercises: WorkoutFormValues | WorkoutFormValues[]) => {
+        const exercises = Array.isArray(submittedExercises) ? submittedExercises : [submittedExercises];
+        const performedOn = sessionDate.toISOString().slice(0, 10);
         const originalIdSet = new Set(originalIds);
         const submittedIdSet = new Set<string>();
         const ops: Promise<any>[] = [];
@@ -47,21 +60,23 @@ export default function DayWorkoutView() {
         let editedCount = 0;
         let deletedCount = 0;
 
-        for (const exercise of submittedExercises) {
+        for (const exercise of exercises) {
             if (!exercise.activity_id) continue;
             for (const [i, set] of exercise.sets.entries()) {
-                const reps = parseInt(set.reps) || null;
-                const weight = parseFloat(set.weight) || null;
+                const row = set as DayWorkoutSet;
+                const reps = parseInt(row.reps) || null;
+                const weight = parseFloat(row.weight) || null;
                 if (reps == null && weight == null) continue;
 
-                if (set._rowId) {
-                    submittedIdSet.add(set._rowId);
+                if (row._rowId) {
+                    submittedIdSet.add(row._rowId);
                     editedCount += 1;
-                    ops.push(storeUpdateWorkout(set._rowId, {
+                    ops.push(storeUpdateWorkout(row._rowId, {
                         exercise_xid: exercise.activity_id,
                         reps,
                         weight,
                         set_num: i + 1,
+                        performed_on: performedOn,
                     }));
                 } else {
                     // New set — insert it
@@ -71,7 +86,7 @@ export default function DayWorkoutView() {
                         reps,
                         weight,
                         set_num: i + 1,
-                        performed_on: (date as string) || undefined,
+                        performed_on: performedOn,
                     }));
                 }
             }
@@ -98,27 +113,60 @@ export default function DayWorkoutView() {
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.container}>
                 <Row style={styles.header}>
-                    <TouchableOpacity
-                        onPress={() => {
-                            posthog.capture('button_click', { screen: 'day_workout_view', button: 'back' });
-                            router.back();
-                        }}
-                        style={styles.backButton}
-                    >
-                        <FontAwesome name="arrow-left" size={24} color={theme.colors.primary} />
-                    </TouchableOpacity>
                     <SectionHeader
-                        title={`${date || 'Sample Date'}`}
+                        title={dayjs(sessionDate).format('MMMM D, YYYY')}
                         style={styles.headerTitle}
                     />
                 </Row>
 
+                <View style={styles.dateRow}>
+                  <Text style={styles.dateLabel}>Session date</Text>
+                  <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.dateButton}>
+                    <Text style={styles.dateValue}>{dayjs(sessionDate).format('MMMM D, YYYY')}</Text>
+                    <FontAwesome name="calendar" size={18} color={theme.colors.text} />
+                  </TouchableOpacity>
+                </View>
+
+                {showDatePicker && (Platform.OS !== 'web' ? (
+                  <DateTimePicker
+                    value={sessionDate}
+                    mode="date"
+                    display="default"
+                    onChange={(_, newDate) => {
+                      setShowDatePicker(false);
+                      if (newDate) setSessionDate(newDate);
+                    }}
+                  />
+                ) : (
+                  <DateTimePicker
+                    value={sessionDate}
+                    mode="date"
+                    display="default"
+                    onChange={(_, newDate) => {
+                      if (newDate) setSessionDate(newDate);
+                    }}
+                  />
+                ))}
+
                 <WorkoutForm
                     initialValues={displayData}
-                    editable={false}
+                    editable={true}
                     onSubmit={handleSubmit}
                 />
-
+                
+                <TouchableOpacity
+                    onPress={() => {
+                        posthog.capture('button_click', { screen: 'day_workout_view', button: 'back' });
+                        try {
+                          router.back();
+                        } catch {
+                          router.push('/');
+                        }
+                    }}
+                    style={[styles.backButton, { bottom: insets.bottom + 20 }]}
+                >
+                    <FontAwesome name="arrow-left" size={24} color="white" />
+                </TouchableOpacity>
             </View>
         </SafeAreaView>
     );
@@ -180,7 +228,43 @@ const getStyles = (theme: any) => StyleSheet.create({
         marginLeft: theme.spacing.sm,
         marginBottom: 0,
     },
+    dateRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+      gap: theme.spacing.sm,
+    },
+    dateLabel: {
+      fontSize: theme.font.body,
+      color: theme.colors.subtext,
+    },
+    dateButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
+      backgroundColor: theme.colors.iconBackground,
+      borderRadius: theme.radius.md,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      gap: theme.spacing.xs,
+    },
+    dateValue: {
+      color: theme.colors.text,
+      fontSize: theme.font.body,
+    },
     backButton: {
-        padding: 8,
+        position: 'absolute',
+        left: 20,
+        padding: 12,
+        borderRadius: 28,
+        backgroundColor: theme.colors.primary,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 3,
+        elevation: 4,
     },
 });
