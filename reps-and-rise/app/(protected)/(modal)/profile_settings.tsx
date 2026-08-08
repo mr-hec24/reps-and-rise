@@ -1,24 +1,32 @@
+import { Screen } from '@/components/Screen';
 import { Avatar, AvatarBadge, AvatarFallbackText, AvatarImage } from '@/components/ui/avatar';
-import { Button, ButtonText } from '@/components/ui/button';
-import { FormControl, FormControlLabel, FormControlLabelText } from '@/components/ui/form-control';
-import { Heading } from '@/components/ui/heading';
-import { Input, InputField } from '@/components/ui/input';
-import { Text } from '@/components/ui/text';
-import { VStack } from '@/components/ui/vstack';
-import { useRouter } from 'expo-router';
+import {
+  BackButton,
+  DangerButton,
+  Field,
+  PrimaryButton,
+  SecondaryButton,
+} from '@/components/ui-ember';
 import { useAuth } from '@/context/auth-provider';
 import { useUser } from '@/context/user-provider';
 import { pickImage } from '@/lib/image-upload';
 import { useThemeMode } from '@/theme/ThemeContext';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, SafeAreaView, StyleSheet, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Row } from '@/components/Row';
 import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { usePostHog } from 'posthog-react-native';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
-export default function ProfileScreen() {
+export default function ProfileSettingsScreen() {
   const posthog = usePostHog();
   const router = useRouter();
   const { signOut, isGuest } = useAuth();
@@ -63,6 +71,11 @@ export default function ProfileScreen() {
     }
   }, [firstName, lastName, profile]);
 
+  const goBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/settings');
+  };
+
   const handleSignOut = async () => {
     if (isSigningOut) return;
 
@@ -72,9 +85,8 @@ export default function ProfileScreen() {
     try {
       await signOut();
       // No need to handle success here - the auth provider will redirect
-    } catch (error) {
-      console.error('Unexpected error during sign out:', error);
-      // Even if there's an error, the signOut function should handle it gracefully
+    } catch (signOutError) {
+      console.error('Unexpected error during sign out:', signOutError);
     } finally {
       setIsSigningOut(false);
     }
@@ -87,15 +99,21 @@ export default function ProfileScreen() {
     }
 
     try {
-      posthog.capture('button_click', { screen: 'profile_settings_modal', button: 'save_profile_changes' });
+      posthog.capture('button_click', {
+        screen: 'profile_settings_modal',
+        button: 'save_profile_changes',
+      });
       await updateProfile({
         first_name: firstName.trim() || null,
         last_name: lastName.trim() || null,
       });
       Alert.alert('Success', 'Profile updated successfully!');
-    } catch (error) {
-      console.error('Error saving profile:', error);
-      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to save profile');
+    } catch (saveError) {
+      console.error('Error saving profile:', saveError);
+      Alert.alert(
+        'Error',
+        saveError instanceof Error ? saveError.message : 'Failed to save profile'
+      );
     }
   };
 
@@ -119,9 +137,12 @@ export default function ProfileScreen() {
       } else {
         Alert.alert('Error', uploadResult.error || 'Failed to upload image');
       }
-    } catch (error) {
-      console.error('Error uploading avatar:', error);
-      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to upload image');
+    } catch (uploadError) {
+      console.error('Error uploading avatar:', uploadError);
+      Alert.alert(
+        'Error',
+        uploadError instanceof Error ? uploadError.message : 'Failed to upload image'
+      );
     }
   };
 
@@ -132,274 +153,218 @@ export default function ProfileScreen() {
     return profile?.email || 'User';
   };
 
-  const getInitials = () => {
-    const name = getDisplayName();
-    return name
+  const getInitials = () =>
+    getDisplayName()
       .split(' ')
-      .map(n => n[0])
+      .map(part => part[0])
       .join('')
       .toUpperCase()
       .slice(0, 2);
-  };
 
-  const CameraIcon = () => <FontAwesome size={16} name='camera' color='white' />;
-
-  const getAvatarSource = () => {
-    if (profile?.avatar_url) {
-      return { uri: profile.avatar_url };
-    }
-    return undefined; // This will fallback to initials
-  };
+  const getAvatarSource = () => (profile?.avatar_url ? { uri: profile.avatar_url } : undefined);
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <VStack space='xl' className='h-full w-full justify-center items-center p-6'>
-          <Text style={styles.bodyText}>Loading profile...</Text>
-        </VStack>
-      </SafeAreaView>
+      <Screen pad={24}>
+        <View style={styles.centered}>
+          <Text style={styles.status}>Loading profile…</Text>
+        </View>
+      </Screen>
     );
   }
 
   if (error && !profile) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <VStack space='xl' className='h-full w-full justify-center items-center p-6'>
+      <Screen pad={24}>
+        <View style={styles.centered}>
           <Text style={styles.errorText}>Error loading profile: {error}</Text>
-          <Button onPress={refreshProfile}>
-            <ButtonText>Retry</ButtonText>
-          </Button>
-        </VStack>
-      </SafeAreaView>
+          <PrimaryButton label='Retry' onPress={refreshProfile} style={styles.stretch} />
+        </View>
+      </Screen>
     );
   }
 
+  const saving = isUpdating || isUploadingAvatar;
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <Row style={styles.headerRow}>
-      </Row>
-      <VStack space='xl' className='h-full w-full justify-start p-6 pt-4'>
-          <VStack space='md' className='w-full items-center'>
-            <Heading size='2xl' style={styles.heading}>Profile</Heading>
-            <Text style={styles.bodyTextCenter}>Manage your account information</Text>
-          </VStack>
+    <Screen>
+      <View style={styles.header}>
+        <BackButton onPress={goBack} />
+        <Text style={styles.headerTitle}>Profile</Text>
+        <View style={styles.headerSpacer} />
+      </View>
 
-          {isGuest && (
-            <VStack space='md' className='w-full rounded-xl border border-primary-200 bg-primary-50 p-4'>
-              <Text style={styles.upgradeHeading}>Upgrade your account</Text>
-              <Text style={styles.upgradeBody}>
-                Register with an email to unlock additional benefits and keep your progress safe longer.
-              </Text>
-              <VStack space='sm' className='w-full'>
-                <Text style={styles.upgradeBullet}>• Data is saved more reliably and restored across devices.</Text>
-                <Text style={styles.upgradeBullet}>• Your app progress is preserved longer term.</Text>
-                <Text style={styles.upgradeBullet}>• You can recover your account if you sign out or reinstall.</Text>
-                <Text style={styles.upgradeBullet}>• You get a consistent identity for future features.</Text>
-              </VStack>
-              <Button
-                size='md'
-                variant='solid'
-                action='secondary'
-                className='mt-4 w-full'
-                onPress={() => router.push('/sign-up?upgrade=true')}
-              >
-                <ButtonText>Register your account</ButtonText>
-              </Button>
-            </VStack>
-          )}
-
-          {/* User Avatar */}
-          <VStack space='md' className='w-full items-center'>
-            <TouchableOpacity
-              onPress={handleAvatarUpload}
-              disabled={isUploadingAvatar}
-              activeOpacity={0.7}
-            >
-              <Avatar size='2xl'>
-                <AvatarFallbackText>{getInitials()}</AvatarFallbackText>
-                {getAvatarSource() && <AvatarImage source={getAvatarSource()} />}
-                <AvatarBadge className='bg-primary-500 items-center justify-center'>
-                  {isUploadingAvatar ? (
-                    <ActivityIndicator size='small' color='white' />
-                  ) : (
-                    <CameraIcon />
-                  )}
-                </AvatarBadge>
-              </Avatar>
-            </TouchableOpacity>
-            <Text style={styles.helperText}>
-              Tap to {profile?.avatar_url ? 'change' : 'upload'} profile picture
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps='handled'
+        showsVerticalScrollIndicator={false}
+      >
+        {isGuest && (
+          <View style={styles.upgradeCard}>
+            <Text style={styles.upgradeHeading}>Upgrade your account</Text>
+            <Text style={styles.upgradeBody}>
+              Register with an email to unlock additional benefits and keep your progress safe
+              longer.
             </Text>
-          </VStack>
+            {[
+              'Data is saved more reliably and restored across devices.',
+              'Your app progress is preserved longer term.',
+              'You can recover your account if you sign out or reinstall.',
+              'You get a consistent identity for future features.',
+            ].map(line => (
+              <Text key={line} style={styles.upgradeBullet}>
+                • {line}
+              </Text>
+            ))}
+            <SecondaryButton
+              label='Register your account'
+              onPress={() => router.push('/sign-up?upgrade=true')}
+              style={styles.upgradeAction}
+            />
+          </View>
+        )}
 
-          {/* Profile Inputs */}
-          <VStack space='lg' className='w-full'>
-            <FormControl
-              size='md'
-              isDisabled={isUpdating || isUploadingAvatar}
-              isReadOnly={false}
-              isRequired={false}
-              className='w-full'
-            >
-              <FormControlLabel>
-                <FormControlLabelText style={styles.labelText}>First Name</FormControlLabelText>
-              </FormControlLabel>
-              <Input className='w-full' size='md' variant='outline'>
-                <InputField
-                  type='text'
-                  placeholder='Enter your first name'
-                  placeholderTextColor={theme.colors.placeholder}
-                  value={firstName}
-                  onChangeText={text => setFirstName(text)}
-                  className='w-full'
-                  style={{ color: theme.colors.text }}
-                />
-              </Input>
-            </FormControl>
+        <View style={styles.avatarBlock}>
+          <TouchableOpacity
+            onPress={handleAvatarUpload}
+            disabled={isUploadingAvatar}
+            activeOpacity={0.7}
+            accessibilityRole='button'
+            accessibilityLabel='Change profile picture'
+          >
+            <Avatar size='2xl'>
+              <AvatarFallbackText>{getInitials()}</AvatarFallbackText>
+              {getAvatarSource() && <AvatarImage source={getAvatarSource()} />}
+              <AvatarBadge className='items-center justify-center' style={styles.avatarBadge}>
+                {isUploadingAvatar ? (
+                  <ActivityIndicator size='small' color={theme.colors.onAccent} />
+                ) : (
+                  <FontAwesome size={14} name='camera' color={theme.colors.onAccent} />
+                )}
+              </AvatarBadge>
+            </Avatar>
+          </TouchableOpacity>
+          <Text style={styles.helperText}>
+            Tap to {profile?.avatar_url ? 'change' : 'upload'} profile picture
+          </Text>
+        </View>
 
-            <FormControl
-              size='md'
-              isDisabled={isUpdating || isUploadingAvatar}
-              isReadOnly={false}
-              isRequired={false}
-              className='w-full'
-            >
-              <FormControlLabel>
-                <FormControlLabelText style={styles.labelText}>Last Name</FormControlLabelText>
-              </FormControlLabel>
-              <Input className='w-full' size='md' variant='outline'>
-                <InputField
-                  type='text'
-                  placeholder='Enter your last name'
-                  value={lastName}
-                  onChangeText={text => setLastName(text)}
-                  className='w-full'
-                  placeholderTextColor={theme.colors.placeholder}
-                  style={{ color: theme.colors.text }}
-                />
-              </Input>
-            </FormControl>
+        <View style={styles.fields}>
+          <View style={styles.nameRow}>
+            <View style={styles.nameCell}>
+              <Field
+                label='First name'
+                placeholder='Alex'
+                value={firstName}
+                onChangeText={setFirstName}
+                editable={!saving}
+              />
+            </View>
+            <View style={styles.nameCell}>
+              <Field
+                label='Last name'
+                placeholder='Rivera'
+                value={lastName}
+                onChangeText={setLastName}
+                editable={!saving}
+              />
+            </View>
+          </View>
 
-            <FormControl
-              size='md'
-              isDisabled={true}
-              isReadOnly={true}
-              isRequired={false}
-              className='w-full'
-            >
-              <FormControlLabel>
-                <FormControlLabelText style={styles.labelText}>Email</FormControlLabelText>
-              </FormControlLabel>
-              <Input className='w-full' size='md' variant='outline'>
-                <InputField
-                  type='text'
-                  placeholder='Email address'
-                  value={profile?.email || ''}
-                  className='w-full'
-                  keyboardType='email-address'
-                  autoCapitalize='none'
-                  editable={false}
-                  placeholderTextColor={theme.colors.placeholder}
-                  style={{ color: theme.colors.text }}
-                />
-              </Input>
-            </FormControl>
-          </VStack>
+          <Field
+            label='Email'
+            value={profile?.email || ''}
+            readOnly
+            keyboardType='email-address'
+            autoCapitalize='none'
+            hint='Email is read-only — it identifies your account.'
+          />
+        </View>
 
-          {/* Action Buttons */}
-          <VStack space='md' className='w-full mt-auto'>
-            <Button
-              size='lg'
-              variant='solid'
-              action='primary'
-              className='w-full'
-              onPress={handleSaveProfile}
-              isDisabled={!hasChanges || isUpdating || isUploadingAvatar}
-            >
-              <ButtonText>
-                {isUpdating ? 'Saving...' : hasChanges ? 'Save Changes' : 'No Changes'}
-              </ButtonText>
-            </Button>
-
-            <Button
-              size='lg'
-              variant='outline'
-              action='secondary'
-              className='w-full'
-              onPress={handleSignOut}
-              isDisabled={isSigningOut || isUpdating || isUploadingAvatar}
-            >
-              <ButtonText>{isSigningOut ? 'Signing Out...' : 'Sign Out'}</ButtonText>
-            </Button>
-          </VStack>
-        </VStack>
-    </SafeAreaView>
+        <View style={styles.actions}>
+          <PrimaryButton
+            label={isUpdating ? 'Saving…' : hasChanges ? 'Save changes' : 'No changes'}
+            onPress={handleSaveProfile}
+            disabled={!hasChanges || saving}
+          />
+          <DangerButton
+            label={isSigningOut ? 'Signing out…' : 'Sign out'}
+            onPress={handleSignOut}
+          />
+        </View>
+      </ScrollView>
+    </Screen>
   );
 }
 
 const getStyles = (theme: any) =>
   StyleSheet.create({
-    safeArea: {
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 13,
+      paddingHorizontal: 20,
+      paddingTop: 4,
+      paddingBottom: 12,
+    },
+    headerTitle: {
       flex: 1,
-      backgroundColor: theme.colors.background,
-    },
-    heading: {
+      fontFamily: theme.font.family.display,
+      fontSize: 18,
+      letterSpacing: -0.36,
       color: theme.colors.text,
     },
-    bodyText: {
-      color: theme.colors.text,
-    },
-    bodyTextCenter: {
-      color: theme.colors.text,
-      textAlign: 'center',
-    },
-    helperText: {
-      color: theme.colors.placeholder,
-      textAlign: 'center',
-      fontSize: 12,
+    headerSpacer: { width: 38 },
+    content: { paddingHorizontal: 20, paddingBottom: 24, gap: 24 },
+    centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
+    stretch: { alignSelf: 'stretch' },
+    status: {
+      fontFamily: theme.font.family.body,
+      fontSize: 14,
+      color: theme.colors.subtext,
     },
     errorText: {
-      color: theme.colors.error,
+      fontFamily: theme.font.family.body,
+      fontSize: 14,
+      color: theme.colors.danger,
       textAlign: 'center',
     },
-    labelText: {
-      color: theme.colors.text
-    },
-    headerRow: {
-      paddingTop: theme.spacing.sm,
-      paddingHorizontal: theme.spacing.md,
-      alignItems: 'flex-start',
-    },
-    backButtonCircle: {
-      position: 'absolute',
-      bottom: theme.spacing.md,
-      left: theme.spacing.md,
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: theme.colors.primary,
-      justifyContent: 'center',
-      alignItems: 'center',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.15,
-      shadowRadius: 3.84,
-      elevation: 4,
+    upgradeCard: {
+      padding: 16,
+      borderRadius: 17,
+      backgroundColor: theme.colors.accentSoft,
+      borderWidth: 1,
+      borderColor: theme.colors.accentSoftBorder,
+      gap: 8,
     },
     upgradeHeading: {
-      color: theme.colors.primary,
-      fontSize: 18,
-      fontWeight: '700',
+      fontFamily: theme.font.family.display,
+      fontSize: 17,
+      color: theme.colors.text,
     },
     upgradeBody: {
-      color: theme.colors.text,
-      fontSize: 14,
+      fontFamily: theme.font.family.body,
+      fontSize: 13.5,
       lineHeight: 20,
+      color: theme.colors.subtext,
     },
     upgradeBullet: {
-      color: theme.colors.text,
-      fontSize: 14,
-      lineHeight: 20,
+      fontFamily: theme.font.family.body,
+      fontSize: 13,
+      lineHeight: 19,
+      color: theme.colors.subtext,
     },
+    upgradeAction: { marginTop: 8 },
+    avatarBlock: { alignItems: 'center', gap: 12 },
+    avatarBadge: { backgroundColor: theme.colors.accent, borderColor: theme.colors.background },
+    helperText: {
+      fontFamily: theme.font.family.body,
+      fontSize: 12,
+      color: theme.colors.muted,
+      textAlign: 'center',
+    },
+    fields: { gap: 14 },
+    nameRow: { flexDirection: 'row', gap: 12 },
+    nameCell: { flex: 1 },
+    actions: { gap: 11 },
   });
-

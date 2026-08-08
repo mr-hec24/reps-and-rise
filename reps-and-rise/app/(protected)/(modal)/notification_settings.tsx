@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Platform, SafeAreaView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { Alert, Platform, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Row } from '@/components/Row';
-import DateTimePicker from "@react-native-community/datetimepicker";
-import { SectionHeader } from '@/components/SectionHeader';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { Screen } from '@/components/Screen';
+import { BackButton } from '@/components/ui-ember';
 import { useThemeMode } from '@/theme/ThemeContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { usePostHog } from 'posthog-react-native';
@@ -19,8 +18,14 @@ import {
 
 export default function NotificationSettingsCard() {
   const posthog = usePostHog();
+  const router = useRouter();
   const { theme } = useThemeMode();
   const styles = getStyles(theme);
+
+  const goBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/settings');
+  };
 
   const [dailyEnabled, setDailyEnabled] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -29,7 +34,9 @@ export default function NotificationSettingsCard() {
   const [scheduledNotificationId, setScheduledNotificationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [permissionStatus, setPermissionStatus] = useState<'granted' | 'denied' | 'undetermined'>('undetermined');
+  const [permissionStatus, setPermissionStatus] = useState<'granted' | 'denied' | 'undetermined'>(
+    'undetermined'
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -51,7 +58,11 @@ export default function NotificationSettingsCard() {
 
         setReminderTime(reminderDate);
         setPermissionStatus(
-          currentPermissionStatus === 'granted' ? 'granted' : currentPermissionStatus === 'denied' ? 'denied' : 'undetermined'
+          currentPermissionStatus === 'granted'
+            ? 'granted'
+            : currentPermissionStatus === 'denied'
+              ? 'denied'
+              : 'undetermined'
         );
         setDailyEnabled(savedSettings.enabled && currentPermissionStatus === 'granted');
         setScheduledNotificationId(savedSettings.notificationId);
@@ -76,7 +87,7 @@ export default function NotificationSettingsCard() {
     enabled: boolean,
     hour: number,
     minute: number,
-    notificationId: string | null,
+    notificationId: string | null
   ) => {
     await saveDailyReminderSettings({
       enabled,
@@ -103,7 +114,11 @@ export default function NotificationSettingsCard() {
         const granted = await requestNotificationPermissions();
         const refreshedStatus = await getNotificationPermissionStatus();
         setPermissionStatus(
-          refreshedStatus === 'granted' ? 'granted' : refreshedStatus === 'denied' ? 'denied' : 'undetermined'
+          refreshedStatus === 'granted'
+            ? 'granted'
+            : refreshedStatus === 'denied'
+              ? 'denied'
+              : 'undetermined'
         );
 
         if (!granted) {
@@ -143,7 +158,10 @@ export default function NotificationSettingsCard() {
   };
 
   const openTimePicker = () => {
-    posthog.capture('button_click', { screen: 'notification_settings_modal', button: 'open_reminder_time_picker' });
+    posthog.capture('button_click', {
+      screen: 'notification_settings_modal',
+      button: 'open_reminder_time_picker',
+    });
     setDraftReminderTime(reminderTime);
     setShowTimePicker(true);
   };
@@ -206,20 +224,27 @@ export default function NotificationSettingsCard() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.container}>
-          <SectionHeader title='Notifications' />
-          <Text style={styles.helperText}>Loading notification preferences...</Text>
+      <Screen>
+        <View style={styles.header}>
+          <BackButton onPress={goBack} />
+          <Text style={styles.headerTitle}>Notifications</Text>
+          <View style={styles.headerSpacer} />
         </View>
-      </SafeAreaView>
+        <View style={styles.container}>
+          <Text style={styles.helperText}>Loading notification preferences…</Text>
+        </View>
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <Screen>
+      <View style={styles.header}>
+        <BackButton onPress={goBack} />
+        <Text style={styles.headerTitle}>Notifications</Text>
+        <View style={styles.headerSpacer} />
+      </View>
       <View style={styles.container}>
-        <SectionHeader title='Notifications' />
-
         <View style={styles.card}>
           <View style={styles.row}>
             <View style={styles.rowContent}>
@@ -230,18 +255,14 @@ export default function NotificationSettingsCard() {
               value={dailyEnabled}
               onValueChange={handleToggleDaily}
               disabled={isUpdating}
-              trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+              trackColor={{ false: theme.colors.border, true: theme.colors.accent }}
               thumbColor={theme.colors.background}
             />
           </View>
 
           {dailyEnabled && (
             <View style={styles.timeSection}>
-              <TouchableOpacity
-                onPress={openTimePicker}
-                style={styles.row}
-                disabled={isUpdating}
-              >
+              <TouchableOpacity onPress={openTimePicker} style={styles.row} disabled={isUpdating}>
                 <Text style={styles.label}>Reminder Time</Text>
                 <Text style={styles.timeValue}>
                   {reminderTime.toLocaleTimeString([], {
@@ -289,21 +310,31 @@ export default function NotificationSettingsCard() {
           )}
         </View>
       </View>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const getStyles = (theme: any) =>
   StyleSheet.create({
-    safeArea: {
-      flex: 1,
-      backgroundColor: theme.colors.background,
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 13,
+      paddingHorizontal: 20,
+      paddingTop: 4,
+      paddingBottom: 12,
     },
+    headerTitle: {
+      flex: 1,
+      fontFamily: theme.font.family.display,
+      fontSize: 18,
+      letterSpacing: -0.36,
+      color: theme.colors.text,
+    },
+    headerSpacer: { width: 38 },
     container: {
       flex: 1,
-      backgroundColor: theme.colors.background,
-      paddingHorizontal: theme.spacing.md,
-      paddingTop: theme.spacing.lg,
+      paddingHorizontal: 20,
     },
     card: {
       marginTop: theme.spacing.md,
@@ -333,24 +364,26 @@ const getStyles = (theme: any) =>
       minWidth: 0,
     },
     label: {
-      fontSize: theme.font.body,
-      fontWeight: '600',
+      fontFamily: theme.font.family.bodySemibold,
+      fontSize: 15,
       color: theme.colors.text,
     },
     helperText: {
       marginTop: theme.spacing.xs,
-      fontSize: theme.font.small,
+      fontFamily: theme.font.family.body,
+      fontSize: 13,
       color: theme.colors.subtext,
     },
     timeValue: {
-      fontSize: theme.font.body,
-      color: theme.colors.primary,
-      fontWeight: '600',
+      fontFamily: theme.font.family.monoBold,
+      fontSize: 15,
+      color: theme.colors.secondary,
     },
     warningText: {
       marginTop: theme.spacing.xs,
-      fontSize: theme.font.small,
-      color: '#B45309',
+      fontFamily: theme.font.family.body,
+      fontSize: 13,
+      color: theme.colors.danger,
     },
     pickerPanel: {
       marginTop: theme.spacing.xs,
@@ -370,14 +403,14 @@ const getStyles = (theme: any) =>
       paddingBottom: theme.spacing.xs,
     },
     primaryAction: {
-      backgroundColor: theme.colors.primary,
+      backgroundColor: theme.colors.accent,
       borderRadius: theme.radius.md,
       paddingHorizontal: theme.spacing.md,
       paddingVertical: theme.spacing.xs,
     },
     primaryActionText: {
-      color: theme.colors.background,
-      fontWeight: '600',
+      fontFamily: theme.font.family.bodySemibold,
+      color: theme.colors.onAccent,
     },
     secondaryAction: {
       borderColor: theme.colors.border,
@@ -388,28 +421,7 @@ const getStyles = (theme: any) =>
       backgroundColor: theme.colors.card,
     },
     secondaryActionText: {
+      fontFamily: theme.font.family.bodyMedium,
       color: theme.colors.text,
-      fontWeight: '500',
     },
-    headerRow: {
-      paddingTop: theme.spacing.sm,
-      paddingHorizontal: theme.spacing.md,
-      alignItems: 'flex-start',
-    },
-    backButtonCircle: {
-      position: 'absolute',
-      bottom: theme.spacing.md,
-      left: theme.spacing.md,
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: theme.colors.primary,
-      justifyContent: 'center',
-      alignItems: 'center',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.15,
-      shadowRadius: 3.84,
-      elevation: 4,
-    }
   });

@@ -1,12 +1,11 @@
-import { SectionHeader } from '@/components/SectionHeader';
+import { Screen } from '@/components/Screen';
+import { BackButton } from '@/components/ui-ember';
 import { useThemeMode } from '@/theme/ThemeContext';
 import { useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { usePostHog } from 'posthog-react-native';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Row } from '@/components/Row';
 
 type PolicySection = {
   title: string;
@@ -49,7 +48,7 @@ const policySections: PolicySection[] = [
       'We do not sell, rent, or trade your personal information. We share data only with trusted providers needed to run the App, including Stripe for payment processingand PostHog for product usage insights.',
       'We may also disclose information when legally required or when necessary to protect the rights, safety, or property of Phoenix Soteria LLC, our users, or the public.',
       'Service Provider Disclosure. We share analytics data with PostHog, our analytics processor, solely to provide analytics and product improvement services on our behalf. PostHog acts as a processor/service provider and is contractually restricted from using this data for unrelated purposes. We do not share analytics data with any other third parties, and we do not sell it. For more information on how PostHog handles data, please refer to their privacy policy at https://posthog.com/privacy.',
-      'International Transfers. Analytics data may be processed in the United States, including by PostHog cloud infrastructure (us.i.posthog.com). Where required, we use appropriate safeguards for cross-border transfers.'
+      'International Transfers. Analytics data may be processed in the United States, including by PostHog cloud infrastructure (us.i.posthog.com). Where required, we use appropriate safeguards for cross-border transfers.',
     ],
   },
   {
@@ -83,7 +82,7 @@ const policySections: PolicySection[] = [
     title: '10. Third-Party Links and Services',
     paragraphs: [
       'The App may include links to or integrations with third-party services (for example, Google or Apple sign-in, PostHog Analytics). This policy does not govern third-party services. Please review their policies directly.',
-      'We use PostHog as a processor/service provider for analytics and session replay, under contractual restrictions limiting use to services performed on our behalf.'
+      'We use PostHog as a processor/service provider for analytics and session replay, under contractual restrictions limiting use to services performed on our behalf.',
     ],
   },
   {
@@ -110,8 +109,8 @@ const policySections: PolicySection[] = [
       'Analytics and replay data may be processed by our service provider, PostHog, including in the United States (for example, via us.i.posthog.com), subject to contractual and security safeguards.',
       'We use this data only for legitimate business purposes such as: Improving app performance and stability; Debugging errors and fixing defects; Understanding feature adoption and product usage; Prioritizing roadmap improvements',
       'We retain replay and analytics data only as long as needed for these purposes, then delete or anonymize it according to our retention schedule.',
-      'You may request access to or deletion of personal data associated with analytics/replay by contacting us at the email listed in this policy.'
-    ]
+      'You may request access to or deletion of personal data associated with analytics/replay by contacting us at the email listed in this policy.',
+    ],
   },
   {
     title: '14. Contact Us',
@@ -135,19 +134,20 @@ export default function PrivacySecuritySettings() {
     }, [posthog])
   );
 
+  const goBack = () => {
+    posthog.capture('button_click', { screen: 'privacy_security_modal', button: 'back' });
+    if (router.canGoBack()) router.back();
+    else router.replace('/settings');
+  };
+
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <Screen>
+      <View style={styles.header}>
+        <BackButton onPress={goBack} />
+        <Text style={styles.headerTitle}>Privacy &amp; security</Text>
+        <View style={styles.headerSpacer} />
+      </View>
       <View style={styles.container}>
-        <TouchableOpacity
-          onPress={() => {
-            posthog.capture('button_click', { screen: 'privacy_security_modal', button: 'back' });
-            router.back();
-          }}
-          style={styles.backButtonCircle}
-        >
-          <FontAwesome name="arrow-left" size={18} color={'#fff'} />
-        </TouchableOpacity>
-        <SectionHeader title='Privacy & Security' />
         <Text style={styles.effectiveDate}>Effective Date: March 23, 2026</Text>
 
         <ScrollView
@@ -155,7 +155,7 @@ export default function PrivacySecuritySettings() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={true}
         >
-          {policySections.map((section) => (
+          {policySections.map(section => (
             <View key={section.title} style={styles.sectionCard}>
               <Text style={styles.sectionTitle}>{section.title}</Text>
               {section.paragraphs.map((paragraph, index) => (
@@ -167,27 +167,37 @@ export default function PrivacySecuritySettings() {
           ))}
         </ScrollView>
       </View>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const getStyles = (theme: any) =>
   StyleSheet.create({
-    safeArea: {
-      flex: 1,
-      backgroundColor: theme.colors.background,
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 13,
+      paddingHorizontal: 20,
+      paddingTop: 4,
+      paddingBottom: 12,
     },
+    headerTitle: {
+      flex: 1,
+      fontFamily: theme.font.family.display,
+      fontSize: 18,
+      letterSpacing: -0.36,
+      color: theme.colors.text,
+    },
+    headerSpacer: { width: 38 },
     container: {
       flex: 1,
-      backgroundColor: theme.colors.background,
-      paddingHorizontal: theme.spacing.md,
-      paddingTop: theme.spacing.lg,
+      paddingHorizontal: 20,
     },
     effectiveDate: {
-      marginTop: theme.spacing.xs,
       marginBottom: theme.spacing.sm,
+      fontFamily: theme.font.family.body,
       color: theme.colors.subtext,
-      fontSize: theme.font.small,
+      fontSize: 13,
     },
     scrollView: {
       flex: 1,
@@ -199,37 +209,22 @@ const getStyles = (theme: any) =>
     sectionCard: {
       borderWidth: 1,
       borderColor: theme.colors.border,
-      borderRadius: theme.radius.lg,
+      borderRadius: 17,
       backgroundColor: theme.colors.card,
       paddingHorizontal: theme.spacing.md,
       paddingVertical: theme.spacing.sm,
       rowGap: theme.spacing.xs,
     },
     sectionTitle: {
-      fontSize: theme.font.body,
-      fontWeight: '700',
+      fontFamily: theme.font.family.display,
+      fontSize: 15,
       color: theme.colors.text,
       marginBottom: theme.spacing.xs,
     },
     paragraphText: {
-      fontSize: theme.font.small,
-      lineHeight: 20,
-      color: theme.colors.text,
+      fontFamily: theme.font.family.body,
+      fontSize: 13.5,
+      lineHeight: 21,
+      color: theme.colors.subtext,
     },
-    backButtonCircle: {
-      position: 'absolute',
-      bottom: theme.spacing.md,
-      left: theme.spacing.md,
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: theme.colors.primary,
-      justifyContent: 'center',
-      alignItems: 'center',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.15,
-      shadowRadius: 3.84,
-      elevation: 4,
-    }
   });
