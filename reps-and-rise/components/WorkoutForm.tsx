@@ -1,9 +1,9 @@
-import { useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useThemeMode } from '@/theme/ThemeContext';
-import { FontAwesome } from "@expo/vector-icons";
+import { FontAwesome } from '@expo/vector-icons';
 import ExerciseInputCard from './ExerciseInputCard';
 import { usePostHog } from 'posthog-react-native';
 
@@ -32,7 +32,7 @@ interface WorkoutFormProps {
 export default function WorkoutForm({
   initialValues,
   onSubmit,
-  submitLabel = "Save",
+  submitLabel = 'Save',
   editable = true,
 }: WorkoutFormProps) {
   const posthog = usePostHog();
@@ -45,42 +45,53 @@ export default function WorkoutForm({
     }
 
     if (initialValues && typeof initialValues === 'object') {
-      return [{
-        activity_id: initialValues.activity_id || '',
-        activity_name: initialValues.activity_name || '',
-        sets: [{
-          sets: initialValues.sets?.[0]?.sets || '',
-          reps: initialValues.sets?.[0]?.reps || '',
-          weight: initialValues.sets?.[0]?.weight || ''
-        }]
-      }];
+      return [
+        {
+          activity_id: initialValues.activity_id || '',
+          activity_name: initialValues.activity_name || '',
+          sets: [
+            {
+              sets: initialValues.sets?.[0]?.sets || '',
+              reps: initialValues.sets?.[0]?.reps || '',
+              weight: initialValues.sets?.[0]?.weight || '',
+            },
+          ],
+        },
+      ];
     }
 
     return [{ activity_id: '', activity_name: '', sets: [{ sets: '', reps: '', weight: '' }] }];
   });
-  const [successMessage, setSuccessMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState('');
 
   const params = useLocalSearchParams();
   const handleSubmit = async () => {
     await onSubmit(exercises);
     posthog.capture('workout_form_saved', {
       exercise_count: exercises.length,
-      total_sets: exercises.reduce((sum, ex) => sum + (Array.isArray(ex.sets) ? ex.sets.length : 0), 0),
+      total_sets: exercises.reduce(
+        (sum, ex) => sum + (Array.isArray(ex.sets) ? ex.sets.length : 0),
+        0
+      ),
     });
 
-    setSuccessMessage("Successfully submitted!");
+    setSuccessMessage('Successfully submitted!');
     setIsEditable(false);
 
-    setTimeout(() => setSuccessMessage(""), 2000);
+    setTimeout(() => setSuccessMessage(''), 2000);
   };
 
   useEffect(() => {
     if (params.activity_id && params.activity_name && params.index !== undefined) {
       const idxParam = Array.isArray(params.index) ? params.index[0] : params.index;
-      const activityId = Array.isArray(params.activity_id) ? params.activity_id[0] : params.activity_id;
-      const activityName = Array.isArray(params.activity_name) ? params.activity_name[0] : params.activity_name;
+      const activityId = Array.isArray(params.activity_id)
+        ? params.activity_id[0]
+        : params.activity_id;
+      const activityName = Array.isArray(params.activity_name)
+        ? params.activity_name[0]
+        : params.activity_name;
       const idx = parseInt(String(idxParam), 10);
-      setExercises((prev) => {
+      setExercises(prev => {
         const newEx = [...prev];
         if (newEx[idx]) {
           newEx[idx] = { ...newEx[idx], activity_id: activityId, activity_name: activityName };
@@ -95,7 +106,7 @@ export default function WorkoutForm({
 
   return (
     <View style={{ flex: 1 }}>
-      <KeyboardAwareScrollView 
+      <KeyboardAwareScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: theme.spacing.md }}
         enableOnAndroid={true}
@@ -108,12 +119,18 @@ export default function WorkoutForm({
             exercise={ex}
             allExercises={exercises}
             editable={isEditable}
-            onUpdate={isEditable ? (updated: WorkoutFormValues) => {
-              const newEx = [...exercises];
-              newEx[idx] = updated;
-              setExercises(newEx);
-            } : undefined}
-            onRemove={isEditable ? () => setExercises(exercises.filter((_, i) => i !== idx)) : undefined}
+            onUpdate={
+              isEditable
+                ? (updated: WorkoutFormValues) => {
+                    const newEx = [...exercises];
+                    newEx[idx] = updated;
+                    setExercises(newEx);
+                  }
+                : undefined
+            }
+            onRemove={
+              isEditable ? () => setExercises(exercises.filter((_, i) => i !== idx)) : undefined
+            }
           />
         ))}
 
@@ -121,20 +138,21 @@ export default function WorkoutForm({
           <TouchableOpacity
             onPress={() => {
               posthog.capture('exercise_added', { source: 'workout_form' });
-              setExercises([...exercises, { activity_id: '', activity_name: '', sets: [{ sets: '', reps: '', weight: '' }] }]);
+              setExercises([
+                ...exercises,
+                { activity_id: '', activity_name: '', sets: [{ sets: '', reps: '', weight: '' }] },
+              ]);
             }}
             style={styles.addButton}
           >
-            <Text style={{ color: "white" }}>Add Exercise</Text>
+            <Text style={styles.addButtonText}>+ Add another exercise</Text>
           </TouchableOpacity>
         )}
 
-        {successMessage !== "" && (
-          <Text style={{ color: "green", textAlign: "center", marginTop: theme.spacing.sm }}>{successMessage}</Text>
-        )}
+        {successMessage !== '' && <Text style={styles.successText}>{successMessage}</Text>}
       </KeyboardAwareScrollView>
 
-      <View style={{ position: 'absolute', bottom: 20, right: 20, zIndex: 1 }}>
+      <View style={styles.saveWrap}>
         <TouchableOpacity
           onPress={() => {
             if (isEditable) {
@@ -144,35 +162,57 @@ export default function WorkoutForm({
               setIsEditable(true);
             }
           }}
-          activeOpacity={1}
-          style={[styles.circleButton, { backgroundColor: theme.colors.primary }]}>
-
-          <FontAwesome name={isEditable ? 'save' : 'pencil'} size={24} color="white" />
+          activeOpacity={0.9}
+          style={styles.circleButton}
+          accessibilityRole='button'
+          accessibilityLabel={isEditable ? 'Save workout' : 'Edit workout'}
+        >
+          <FontAwesome
+            name={isEditable ? 'save' : 'pencil'}
+            size={22}
+            color={theme.colors.onAccent}
+          />
         </TouchableOpacity>
       </View>
     </View>
   );
 }
 
-const getStyles = (theme: any) => StyleSheet.create({
-  addButton: {
-            backgroundColor: theme.colors.secondary,
-            padding: theme.spacing.md,
-            borderRadius: theme.radius.md,
-            alignItems: "center",
-            marginTop: theme.spacing.xs,
-          },
-  circleButton: {
-            backgroundColor: theme.colors.primary,
-            width: 56,
-            height: 56,
-            borderRadius: 28,
-            justifyContent: 'center',
-            alignItems: 'center',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.25,
-            shadowRadius: 3.84,
-            elevation: 5,
-          },
-});
+const getStyles = (theme: any) =>
+  StyleSheet.create({
+    addButton: {
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      backgroundColor: theme.colors.card,
+      padding: theme.spacing.md,
+      borderRadius: 14,
+      alignItems: 'center',
+      marginTop: theme.spacing.xs,
+    },
+    addButtonText: {
+      fontFamily: theme.font.family.bodySemibold,
+      fontSize: 14,
+      color: theme.colors.text,
+    },
+    successText: {
+      fontFamily: theme.font.family.bodyMedium,
+      fontSize: 13,
+      color: theme.colors.success,
+      textAlign: 'center',
+      marginTop: theme.spacing.sm,
+    },
+    saveWrap: { position: 'absolute', bottom: 20, right: 20, zIndex: 1 },
+    circleButton: {
+      backgroundColor: theme.colors.accent,
+      width: 56,
+      height: 56,
+      borderRadius: theme.radius.pill,
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.3,
+      shadowRadius: 10,
+      elevation: 6,
+    },
+  });
