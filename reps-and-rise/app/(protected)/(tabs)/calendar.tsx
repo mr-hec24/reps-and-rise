@@ -1,14 +1,13 @@
+import React, { useCallback, useEffect } from 'react';
 import { StyleSheet, SafeAreaView, View, Text, SectionList, TouchableOpacity} from 'react-native';
 import { useThemeMode } from '@/theme/ThemeContext';
 import { Card } from '@/components/Card';
 import { SectionHeader } from '@/components/SectionHeader';
 
-import { useWorkoutStore } from '@/store/globalStore';
-import { useCallback, useEffect } from 'react';
+import { useWorkoutStore, WorkoutItem } from '@/store/globalStore';
 import dayjs from 'dayjs';
-import { Link, router } from 'expo-router';
+import { router } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import React from 'react';
 import { Row } from '@/components/Row';
 import { formatDate } from '@/utils/dateUtils';
 import { useFocusEffect } from '@react-navigation/native';
@@ -44,18 +43,18 @@ export default function TabTwoScreen() {
     
     if (loading) return <Text>Loading...</Text>;
     // Group workouts by date for display
-    const grouped = workouts.reduce((acc, workout) => {
-        const sourceDate = workout.performed_on || workout.created_at;
+    const grouped = workouts.reduce((acc: Record<string, WorkoutItem[]>, workout: WorkoutItem) => {
+        const sourceDate = workout.performed_on || workout.created_at || new Date().toISOString();
         const date = dayjs(sourceDate).format('YYYY-MM-DD');
         if (!acc[date]) acc[date] = [];
         acc[date].push(workout);
         return acc;
-    }, {});
+    }, {} as Record<string, WorkoutItem[]>);
     // Convert grouped object into an array of sections for SectionList
-    const sections = Object.entries(grouped)
-      .sort((a, b) => new Date(b[0]) - new Date(a[0])) // sort by date key
+    const sections: { title: string; data: WorkoutItem[] }[] = (Object.entries(grouped) as [string, WorkoutItem[]][])
+      .sort((a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime())
       .map(([date, items]) => ({
-         title: formatDate(date),
+        title: formatDate(date),
         data: items,
       }));
 
@@ -66,23 +65,12 @@ export default function TabTwoScreen() {
       <View style={dynamicStyles.container}>
       <Row style={dynamicStyles.header}>
         <SectionHeader title="Exercise History"/>
-
-        <TouchableOpacity
-          style={dynamicStyles.addWorkoutButton}
-          onPress={() => {
-            posthog.capture('button_click', { screen: 'calendar_tab', button: 'add_workout' });
-            posthog.capture('workout_session_started', { source: 'calendar_tab' });
-            router.push('/exercise-input');
-          }}
-        >
-          <FontAwesome name="plus" size={24} color="white" />
-
-        </TouchableOpacity>
       </Row>
       
-      <SectionList 
+        <SectionList 
           sections={sections}
           keyExtractor={(item) => item.id}
+          contentContainerStyle={dynamicStyles.sectionList}
           renderSectionHeader={({ section }) => {
             const exerciseNames = Array.from(
               new Set(
@@ -130,13 +118,22 @@ export default function TabTwoScreen() {
             
           )}}
           renderItem={({ item, section }) => null}
-      />
-    </View>
+      />      
+      <TouchableOpacity
+        style={dynamicStyles.addWorkoutButton}
+        onPress={() => {
+          posthog.capture('button_click', { screen: 'calendar_tab', button: 'add_workout' });
+          posthog.capture('workout_session_started', { source: 'calendar_tab' });
+          router.push('/exercise-input');
+        }}
+      >
+        <FontAwesome name="plus" size={24} color="white" />
+      </TouchableOpacity>    </View>
     </SafeAreaView>
   );
 }
 
-const styles = (theme) => StyleSheet.create({
+const styles = (theme: any) => StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -151,6 +148,9 @@ const styles = (theme) => StyleSheet.create({
   },
   header: {
     paddingBottom: theme.spacing.xs,
+  },
+  sectionList: {
+    paddingTop: 20,
   },
   title: {
     fontSize: 20,
@@ -220,6 +220,9 @@ const styles = (theme) => StyleSheet.create({
     borderColor: theme.colors.border
   },
   addWorkoutButton: {
+    position: 'absolute',
+    bottom: 100,
+    right: 36,
     width: 42,
     height: 42,
     borderRadius: 28,

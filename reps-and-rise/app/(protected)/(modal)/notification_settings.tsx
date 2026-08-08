@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Platform, SafeAreaView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { useRouter } from 'expo-router';
+import { Row } from '@/components/Row';
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { SectionHeader } from '@/components/SectionHeader';
 import { useThemeMode } from '@/theme/ThemeContext';
@@ -388,4 +391,25 @@ const getStyles = (theme: any) =>
       color: theme.colors.text,
       fontWeight: '500',
     },
+    headerRow: {
+      paddingTop: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.md,
+      alignItems: 'flex-start',
+    },
+    backButtonCircle: {
+      position: 'absolute',
+      bottom: theme.spacing.md,
+      left: theme.spacing.md,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: theme.colors.primary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.15,
+      shadowRadius: 3.84,
+      elevation: 4,
+    }
   });

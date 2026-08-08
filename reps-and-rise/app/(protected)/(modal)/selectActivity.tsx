@@ -5,6 +5,11 @@ import { supabase } from "@/lib/supabase";
 import { usePostHog } from 'posthog-react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
+interface ActivityItem {
+  id: string;
+  name: string;
+}
+
 // const ACTIVITIES = [
 //   "Bench Press",
 //   "Squat",
@@ -22,7 +27,7 @@ import { useFocusEffect } from '@react-navigation/native';
 
 export default function SelectActivity() {
   const posthog = usePostHog();
-  const [activities, setActivities] = useState([]);
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [query, setQuery] = useState("");
 
   useFocusEffect(
@@ -47,7 +52,7 @@ export default function SelectActivity() {
 //     a.toLowerCase().includes(query.toLowerCase())
 //   );
 
-  const handleSelect = (activity) => {
+  const handleSelect = (activity: ActivityItem) => {
     posthog.capture('exercise_selected', {
       source: 'select_activity_modal',
       exercise_id: activity.id,

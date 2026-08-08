@@ -15,7 +15,7 @@ const WORKOUT_SELECT = `
 `;
 
 // Gets the raw workout data for the current user, including activity details via a join
-export async function getWorkouts() {
+export async function getWorkouts(): Promise<any[]> {
     const {
         data: {user},
         error: useError,
@@ -72,7 +72,7 @@ export async function getWorkouts() {
 }
 
 // Adds a new workout entry to the database
-export async function addWorkout(workout) {
+export async function addWorkout(workout: Record<string, any>): Promise<any> {
     const { data, error } = await supabase
         .from('workout_history')
         .insert(workout)
@@ -98,7 +98,7 @@ export async function addWorkout(workout) {
 }
 
 // Updates an existing workout entry in the database
-export async function updateWorkout(workoutId, updates) {
+export async function updateWorkout(workoutId: string, updates: Record<string, any>): Promise<any> {
     const { data, error } = await supabase
         .from('workout_history')
         .update(updates)

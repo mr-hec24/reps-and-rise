@@ -11,11 +11,15 @@ import { Input, InputField } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useAuth } from '@/context/auth-provider';
-import { useState } from 'react';
-import { Keyboard, SafeAreaView, Touchable, TouchableWithoutFeedback } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Keyboard, SafeAreaView, TouchableWithoutFeedback } from 'react-native';
 
 export default function SignIn() {
-  const { signIn } = useAuth();
+  const router = useRouter();
+  const { signIn, signInAsGuest } = useAuth();
+  const [successMessage, setSuccessMessage] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -27,6 +31,29 @@ export default function SignIn() {
     }
   };
 
+  const handleGuestSignIn = async () => {
+    try {
+      await signInAsGuest();
+    } catch (error) {
+      console.error('Error signing in as guest:', error);
+    }
+  };
+
+  useEffect(() => {
+    const checkSignupFlag = async () => {
+      try {
+        const flag = await AsyncStorage.getItem('signupShowVerify');
+        if (flag) {
+          setSuccessMessage('Confirm your email to be able to login!');
+          await AsyncStorage.removeItem('signupShowVerify');
+        }
+      } catch (e) {
+        console.warn('Error reading signup flag', e);
+      }
+    };
+    checkSignupFlag();
+  }, []);
+
   return (
     <SafeAreaView className='flex h-full w-full flex-1 bg-background'>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
@@ -35,6 +62,14 @@ export default function SignIn() {
           <Heading size='2xl'>Sign In</Heading>
           <Text className='text-center'>Sign in to your account</Text>
         </VStack>
+
+          {successMessage ? (
+            <VStack className='w-full'>
+              <Text className='text-success-700 text-center text-sm bg-success-50 p-3 rounded-md'>
+                {successMessage}
+              </Text>
+            </VStack>
+          ) : null}
 
         <VStack space='lg' className='w-full'>
           <FormControl
@@ -94,6 +129,24 @@ export default function SignIn() {
             onPress={handleSignIn}
           >
             <ButtonText>Sign In</ButtonText>
+          </Button>
+          <Button
+            size='lg'
+            variant='outline'
+            action='secondary'
+            className='w-full'
+            onPress={() => router.push('/forgot-password')}
+          >
+            <ButtonText>Forgot Password?</ButtonText>
+          </Button>
+          <Button
+            size='lg'
+            variant='outline'
+            action='secondary'
+            className='w-full'
+            onPress={handleGuestSignIn}
+          >
+            <ButtonText>Continue as Guest</ButtonText>
           </Button>
         </VStack>
       </VStack>
