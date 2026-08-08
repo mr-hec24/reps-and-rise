@@ -1,239 +1,209 @@
-import React, { useCallback, useEffect } from 'react';
-import { StyleSheet, SafeAreaView, View, Text, SectionList, TouchableOpacity} from 'react-native';
+import { Screen, useFloatingBottomOffset } from '@/components/Screen';
+import { Chip, ScreenTitle } from '@/components/ui-ember';
+import { useWorkoutStore } from '@/store/globalStore';
 import { useThemeMode } from '@/theme/ThemeContext';
-import { Card } from '@/components/Card';
-import { SectionHeader } from '@/components/SectionHeader';
-
-import { useWorkoutStore, WorkoutItem } from '@/store/globalStore';
+import { currentWeek, groupSessions, type WorkoutSession } from '@/utils/workoutStats';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { useFocusEffect } from '@react-navigation/native';
 import dayjs from 'dayjs';
 import { router } from 'expo-router';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Row } from '@/components/Row';
-import { formatDate } from '@/utils/dateUtils';
-import { useFocusEffect } from '@react-navigation/native';
 import { usePostHog } from 'posthog-react-native';
+import React, { useCallback, useEffect, useMemo } from 'react';
+import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-function Icon(props: {
-  name: React.ComponentProps<typeof FontAwesome>['name'];
-  color: string;
-}) {
-  const { theme } = useThemeMode();
-  const dynamicStyles = styles(theme);
-  return <FontAwesome size={28} style={dynamicStyles.icon} {...props} />;
-}
-
-export default function TabTwoScreen() {
+export default function HistoryScreen() {
   const posthog = usePostHog();
   const { theme } = useThemeMode();
+  const styles = getStyles(theme);
+  const floatingBottom = useFloatingBottomOffset(false);
 
-    const loading = useWorkoutStore((state) => state.loading);
-    const fetchWorkouts = useWorkoutStore((state) => state.fetchWorkouts);
-    const workouts = useWorkoutStore((state) => state.workouts);
-    
-    // Fetches workouts on component mount and whenever the store updates
-    useEffect(() => {
-        fetchWorkouts();
-    }, []);
+  const loading = useWorkoutStore(state => state.loading);
+  const fetchWorkouts = useWorkoutStore(state => state.fetchWorkouts);
+  const workouts = useWorkoutStore(state => state.workouts);
 
-    useFocusEffect(
-      useCallback(() => {
-        posthog.capture('screen_view', { screen: 'calendar_tab', section: 'tab' });
-      }, [posthog])
-    );
-    
-    if (loading) return <Text>Loading...</Text>;
-    // Group workouts by date for display
-    const grouped = workouts.reduce((acc: Record<string, WorkoutItem[]>, workout: WorkoutItem) => {
-        const sourceDate = workout.performed_on || workout.created_at || new Date().toISOString();
-        const date = dayjs(sourceDate).format('YYYY-MM-DD');
-        if (!acc[date]) acc[date] = [];
-        acc[date].push(workout);
-        return acc;
-    }, {} as Record<string, WorkoutItem[]>);
-    // Convert grouped object into an array of sections for SectionList
-    const sections: { title: string; data: WorkoutItem[] }[] = (Object.entries(grouped) as [string, WorkoutItem[]][])
-      .sort((a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime())
-      .map(([date, items]) => ({
-        title: formatDate(date),
-        data: items,
-      }));
+  useEffect(() => {
+    fetchWorkouts();
+  }, [fetchWorkouts]);
 
-  const dynamicStyles = styles(theme);
+  useFocusEffect(
+    useCallback(() => {
+      posthog.capture('screen_view', { screen: 'calendar_tab', section: 'tab' });
+    }, [posthog])
+  );
+
+  const sessions = useMemo(() => groupSessions(workouts), [workouts]);
+  const week = useMemo(() => currentWeek(workouts), [workouts]);
+
+  const openSession = (session: WorkoutSession) => {
+    posthog.capture('button_click', {
+      screen: 'calendar_tab',
+      button: 'open_day_workout',
+      date: session.key,
+      row_count: session.rows.length,
+    });
+    router.push({
+      pathname: '/day-workout-view',
+      params: {
+        date: dayjs(session.date).format('MMMM D, YYYY'),
+        workouts: JSON.stringify(session.rows),
+      },
+    });
+  };
 
   return (
-    <SafeAreaView style={dynamicStyles.safeArea}>
-      <View style={dynamicStyles.container}>
-      <Row style={dynamicStyles.header}>
-        <SectionHeader title="Exercise History"/>
-      </Row>
-      
-        <SectionList 
-          sections={sections}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={dynamicStyles.sectionList}
-          renderSectionHeader={({ section }) => {
-            const exerciseNames = Array.from(
-              new Set(
-                (section.data as any[])
-                  .map((workout) =>
-                    workout.exercises?.name || workout.activities?.activity_name || workout.activity_name
-                  )
-                  .filter(Boolean)
-              )
-            );
+    <Screen edges={['top']}>
+      <View style={styles.head}>
+        <ScreenTitle>History</ScreenTitle>
+        <View style={styles.weekStrip}>
+          {week.map(day => (
+            <View
+              key={day.key}
+              style={[
+                styles.weekDay,
+                day.isToday && {
+                  backgroundColor: theme.colors.selectedCard,
+                  borderColor: theme.colors.accent,
+                },
+              ]}
+            >
+              <Text style={styles.weekDow}>{day.dow}</Text>
+              <Text
+                style={[
+                  styles.weekNumber,
+                  { color: day.volume ? theme.colors.text : theme.colors.muted },
+                ]}
+              >
+                {day.day}
+              </Text>
+              <View
+                style={[
+                  styles.weekDot,
+                  { backgroundColor: day.volume ? theme.colors.accent : theme.colors.border },
+                ]}
+              />
+            </View>
+          ))}
+        </View>
+      </View>
 
-            return (
-            <Card style={dynamicStyles.card}>
-              <TouchableOpacity onPress={() => {
-                posthog.capture('button_click', {
-                  screen: 'calendar_tab',
-                  button: 'open_day_workout',
-                  date: section.title,
-                  row_count: section.data.length,
-                });
-                router.push({
-                  pathname: '/day-workout-view',
-                  params: {
-                    date: section.title,
-                    workouts: JSON.stringify(section.data)
-                  }
-                });
-              }}>
-                <Row style={dynamicStyles.row}>
-                  <Icon name='calendar' color={theme.colors.primary} />
-                  <Text style={dynamicStyles.sectionTitle} >{section.title}</Text>
-                </Row>
+      <FlatList
+        data={sessions}
+        keyExtractor={session => session.key}
+        contentContainerStyle={[styles.list, { paddingBottom: floatingBottom + 56 }]}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Text style={styles.emptyText}>
+              {loading ? 'Loading your sessions…' : 'No sessions logged yet. Tap + to start one.'}
+            </Text>
+          </View>
+        }
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => openSession(item)}
+            style={styles.card}
+            accessibilityRole='button'
+          >
+            <View style={styles.cardHead}>
+              <Text style={styles.cardDate}>{dayjs(item.date).format('ddd, MMM D')}</Text>
+              <Text style={styles.cardMeta}>
+                {item.setCount} {item.setCount === 1 ? 'set' : 'sets'}
+              </Text>
+            </View>
+            <View style={styles.tags}>
+              {item.exerciseNames.map(name => (
+                <Chip key={`${item.key}-${name}`} label={name} tone='amber' />
+              ))}
+            </View>
+          </TouchableOpacity>
+        )}
+      />
 
-                {exerciseNames.length > 0 && (
-                  <View style={dynamicStyles.tagsContainer}>
-                    {exerciseNames.map((exerciseName) => (
-                      <View key={`${section.title}-${exerciseName}`} style={dynamicStyles.tag}>
-                        <Text style={dynamicStyles.tagText}>{exerciseName}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-              </TouchableOpacity>
-            </Card>
-            
-          )}}
-          renderItem={({ item, section }) => null}
-      />      
       <TouchableOpacity
-        style={dynamicStyles.addWorkoutButton}
+        style={[styles.fab, { bottom: floatingBottom }]}
         onPress={() => {
           posthog.capture('button_click', { screen: 'calendar_tab', button: 'add_workout' });
           posthog.capture('workout_session_started', { source: 'calendar_tab' });
           router.push('/exercise-input');
         }}
+        accessibilityRole='button'
+        accessibilityLabel='Log a workout'
       >
-        <FontAwesome name="plus" size={24} color="white" />
-      </TouchableOpacity>    </View>
-    </SafeAreaView>
+        <FontAwesome name='plus' size={22} color={theme.colors.onAccent} />
+      </TouchableOpacity>
+    </Screen>
   );
 }
 
-const styles = (theme: any) => StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  container: {
-    flex: 1,
-    paddingTop: theme.spacing.lg,
-    paddingLeft: theme.spacing.md,
-    paddingRight: theme.spacing.md,
-    justifyContent: 'center',
-    backgroundColor: theme.colors.background,
-  },
-  header: {
-    paddingBottom: theme.spacing.xs,
-  },
-  sectionList: {
-    paddingTop: 20,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  separator: {
-    marginVertical: 30,
-    height: 1,
-    width: '80%',
-  },
-  
-  card: {
-
-  },
-  link: {
-    color: theme.colors.primary
-  },
-  sectionTitle: {
-    fontSize: theme.font.title,
-    fontWeight: 600,
-    color: theme.colors.text
-  },
-  sectionInfo: {
-    paddingTop: theme.spacing.lg,
-    paddingLeft: theme.spacing.xs,
-    paddingRight: theme.spacing.xs,
-    paddingBottom: theme.spacing.xs,
-
-  },
-  exerciseCard: {
-    margin: theme.spacing.xs,
-    backgroundColor: '#FAFAF8'
-  },
-  row: {
-    alignContent: 'center',
-    justifyContent: 'flex-start',
-    columnGap: theme.spacing.sm
-  },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: theme.spacing.sm,
-    columnGap: theme.spacing.xs,
-    rowGap: theme.spacing.xs,
-  },
-  tag: {
-    backgroundColor: theme.colors.iconBackground,
-    borderRadius: 999,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 4,
-  },
-  tagText: {
-    color: theme.colors.subtext,
-    fontSize: theme.font.small,
-    fontWeight: '600',
-  },
-  exercise: {
-    color: theme.colors.subtext,
-    marginBottom: theme.spacing.xs
-  },
-  icon: {
-    backgroundColor: theme.colors.iconBackground,
-    color: theme.colors.primary,
-    padding: theme.spacing.sm,
-    borderRadius: theme.spacing.sm,
-    borderWidth: theme.radius.xs,
-    borderColor: theme.colors.border
-  },
-  addWorkoutButton: {
-    position: 'absolute',
-    bottom: 100,
-    right: 36,
-    width: 42,
-    height: 42,
-    borderRadius: 28,
-    backgroundColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 6,
-  }
-});
+const getStyles = (theme: any) =>
+  StyleSheet.create({
+    head: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12, gap: 14 },
+    weekStrip: { flexDirection: 'row', gap: 5 },
+    weekDay: {
+      flex: 1,
+      paddingVertical: 9,
+      borderRadius: theme.radius.md,
+      backgroundColor: theme.colors.surfaceSunken,
+      borderWidth: 1,
+      borderColor: theme.colors.hairline,
+      alignItems: 'center',
+      gap: 5,
+    },
+    weekDow: {
+      fontFamily: theme.font.family.bodyMedium,
+      fontSize: 10,
+      color: theme.colors.subtext,
+    },
+    weekNumber: { fontFamily: theme.font.family.monoBold, fontSize: 13 },
+    weekDot: { width: 5, height: 5, borderRadius: theme.radius.pill },
+    list: { paddingHorizontal: 20, paddingTop: 4, gap: 11 },
+    card: {
+      padding: 15,
+      borderRadius: 17,
+      backgroundColor: theme.colors.card,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      gap: 11,
+    },
+    cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    cardDate: {
+      fontFamily: theme.font.family.display,
+      fontSize: 15.5,
+      color: theme.colors.text,
+    },
+    cardMeta: {
+      fontFamily: theme.font.family.mono,
+      fontSize: 11.5,
+      color: theme.colors.subtext,
+    },
+    tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+    empty: {
+      padding: 18,
+      borderRadius: 15,
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: theme.colors.border,
+    },
+    emptyText: {
+      fontFamily: theme.font.family.body,
+      fontSize: 13,
+      lineHeight: 20,
+      color: theme.colors.subtext,
+    },
+    fab: {
+      position: 'absolute',
+      right: 22,
+      width: 56,
+      height: 56,
+      borderRadius: theme.radius.pill,
+      backgroundColor: theme.colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.35,
+      shadowRadius: 12,
+      elevation: 8,
+    },
+  });

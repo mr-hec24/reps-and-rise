@@ -1,60 +1,29 @@
+import { Screen } from '@/components/Screen';
 import { Avatar, AvatarFallbackText, AvatarImage } from '@/components/ui/avatar';
-import { Button, ButtonText } from '@/components/ui/button';
+import {
+  DangerButton,
+  ListGroup,
+  ListRow,
+  PrimaryButton,
+  ScreenTitle,
+  SectionLabel,
+} from '@/components/ui-ember';
 import { useAuth } from '@/context/auth-provider';
 import { useUser } from '@/context/user-provider';
-import { pickImage } from '@/lib/image-upload';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View, SafeAreaView } from 'react-native';
-import { VStack } from '@/components/ui/vstack';
 import { useThemeMode } from '@/theme/ThemeContext';
-import { SectionHeader } from '@/components/SectionHeader';
+import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
 import { usePostHog } from 'posthog-react-native';
+import { useCallback } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
-
-export default function ProfileScreen() {
+export default function SettingsScreen() {
   const posthog = usePostHog();
   const { signOut } = useAuth();
-  const {
-    profile,
-    isLoading,
-    isUpdating,
-    isUploadingAvatar,
-    error,
-    updateProfile,
-    uploadAvatarImage,
-    refreshProfile,
-  } = useUser();
-  const { theme, toggleTheme } = useThemeMode();
-  const dynamicStyles = styles(theme);
-
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [isSigningOut, setIsSigningOut] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
-
-  const [selectedSetting, setSelectedSetting] = useState('none');
-
-
-  // Load profile data into form when available
-  useEffect(() => {
-    if (profile) {
-      setFirstName(profile.first_name || '');
-      setLastName(profile.last_name || '');
-    }
-  }, [profile]);
-
-  // Check for changes
-  useEffect(() => {
-    if (profile) {
-      const currentFirstName = profile.first_name || '';
-      const currentLastName = profile.last_name || '';
-      setHasChanges(firstName !== currentFirstName || lastName !== currentLastName);
-    }
-  }, [firstName, lastName, profile]);
+  const { profile, isLoading, error, refreshProfile } = useUser();
+  const { theme, mode, toggleTheme } = useThemeMode();
+  const styles = getStyles(theme);
 
   useFocusEffect(
     useCallback(() => {
@@ -69,163 +38,175 @@ export default function ProfileScreen() {
     return profile?.email || 'User';
   };
 
-  const getInitials = () => {
-    const name = getDisplayName();
-    return name
+  const getInitials = () =>
+    getDisplayName()
       .split(' ')
-      .map(n => n[0])
+      .map(part => part[0])
       .join('')
       .toUpperCase()
       .slice(0, 2);
-  };
 
-
-  const getAvatarSource = () => {
-    if (profile?.avatar_url) {
-      return { uri: profile.avatar_url };
-    }
-    return undefined; // This will fallback to initials
-  };
+  const getAvatarSource = () => (profile?.avatar_url ? { uri: profile.avatar_url } : undefined);
 
   if (isLoading) {
     return (
-      <SafeAreaView className='flex h-full w-full flex-1 bg-background'>
-        <VStack space='xl' className='h-full w-full justify-center items-center p-6'>
-          <Text>Loading profile...</Text>
-        </VStack>
-      </SafeAreaView>
+      <Screen edges={['top']} pad={20}>
+        <View style={styles.centered}>
+          <Text style={styles.status}>Loading profile…</Text>
+        </View>
+      </Screen>
     );
   }
 
   if (error && !profile) {
     return (
-      <SafeAreaView className='flex h-full w-full flex-1 bg-background'>
-        <VStack space='xl' className='h-full w-full justify-center items-center p-6'>
-          <Text className='text-center text-red-500'>Error loading profile: {error}</Text>
-          <Button onPress={refreshProfile}>
-            <ButtonText>Retry</ButtonText>
-          </Button>
-        </VStack>
-      </SafeAreaView>
+      <Screen edges={['top']} pad={20}>
+        <View style={styles.centered}>
+          <Text style={styles.errorText}>Error loading profile: {error}</Text>
+          <PrimaryButton label='Retry' onPress={refreshProfile} style={styles.retry} />
+        </View>
+      </Screen>
     );
-  }
-
-  const settings = {
-    account: [
-      "Profile Settings",
-      "Notifications",
-      "Privacy & Security",
-      "Appearance",
-    ],
-    support: ["Buy Me a Coffee", "Send Feedback"],
   }
 
   const openSelectedSetting = (setting: string) => {
     posthog.capture('button_click', { screen: 'settings_tab', button: setting });
-    setSelectedSetting(setting); 
     switch (setting) {
-      case "Profile Settings":
+      case 'Profile settings':
         posthog.capture('modal_opened', { modal: 'profile_settings' });
-        router.push("/profile_settings");
+        router.push('/profile_settings');
         break;
-      case "Notifications":
+      case 'Notifications':
         posthog.capture('modal_opened', { modal: 'notification_settings' });
-        router.push('/notification_settings')
-        break;  
-      case "Privacy & Security":
+        router.push('/notification_settings');
+        break;
+      case 'Privacy & security':
         posthog.capture('modal_opened', { modal: 'privacy_security_setting' });
         router.push('/privacy_security_setting');
-        break;    
-      case "Appearance":
+        break;
+      case 'Appearance':
         posthog.capture('appearance_toggled', { source: 'settings_tab' });
         toggleTheme();
         break;
-      case "Send Feedback": 
+      case 'Send feedback':
         posthog.capture('modal_opened', { modal: 'send_feedback' });
         router.push('/send_feedback');
         break;
-      case "Buy Me a Coffee":
+      case 'Buy me a coffee':
         posthog.capture('modal_opened', { modal: 'buy_me_a_coffee' });
         router.push('/buy_me_a_coffee' as never);
         break;
       default:
         break;
-     }
-  }
+    }
+  };
+
+  const accountRows = [
+    { label: 'Profile settings', value: '' },
+    { label: 'Notifications', value: 'Daily reminder' },
+    { label: 'Privacy & security', value: '' },
+    { label: 'Appearance', value: mode === 'dark' ? 'Dark' : 'Light' },
+  ];
+
+  const supportRows = [{ label: 'Buy me a coffee' }, { label: 'Send feedback' }];
 
   return (
-    <SafeAreaView style={dynamicStyles.safeArea}>
-      <View style={dynamicStyles.container}>
-      <SectionHeader title="Settings" />
-      <LinearGradient colors={[theme.colors.secondary, theme.colors.primary]} start={{x:0, y:0}} end={{x:1, y:1}} style={dynamicStyles.profileCard}><Avatar size='2xl'>
-        <AvatarFallbackText>{getInitials()}</AvatarFallbackText>
-          {getAvatarSource() && <AvatarImage source={getAvatarSource()} />}  
+    <Screen edges={['top']} pad={20} extraBottom={20} scroll contentStyle={styles.content}>
+      <ScreenTitle>Settings</ScreenTitle>
+
+      <LinearGradient
+        colors={[theme.colors.secondary, theme.colors.primary]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.profileCard}
+      >
+        <Avatar size='xl'>
+          <AvatarFallbackText>{getInitials()}</AvatarFallbackText>
+          {getAvatarSource() && <AvatarImage source={getAvatarSource()} />}
         </Avatar>
-        <View style={{ flex: 1, maxWidth: 145}}>
-          <Text style={dynamicStyles.profileTitle}>Hello, {getDisplayName()}!</Text>
-          <Text style={dynamicStyles.profileSubtitle}>Member since 2024</Text>
+        <View style={styles.profileBody}>
+          <Text style={styles.profileName} numberOfLines={1}>
+            {getDisplayName()}
+          </Text>
+          <Text style={styles.profileMeta}>Member since 2024</Text>
         </View>
       </LinearGradient>
-        
-      <SectionHeader title="Account" />
-      {settings.account.map((setting) => (
-        <TouchableOpacity activeOpacity={1} key={setting} style={dynamicStyles.row} onPress={() => openSelectedSetting(setting)}>
-          <Text style={dynamicStyles.rowText}>{setting}</Text>
-        </TouchableOpacity>
-      ))}
 
-      <SectionHeader title="Support" />
-      {settings.support.map((setting) => (
-        <TouchableOpacity key={setting} style={dynamicStyles.row} onPress={() => openSelectedSetting(setting)}>
-          <Text style={dynamicStyles.rowText}>{setting}</Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-    </SafeAreaView>
+      <View style={styles.group}>
+        <SectionLabel>Account</SectionLabel>
+        <ListGroup>
+          {accountRows.map((row, index) => (
+            <ListRow
+              key={row.label}
+              label={row.label}
+              value={row.value}
+              last={index === accountRows.length - 1}
+              onPress={() => openSelectedSetting(row.label)}
+            />
+          ))}
+        </ListGroup>
+      </View>
+
+      <View style={styles.group}>
+        <SectionLabel>Support</SectionLabel>
+        <ListGroup>
+          {supportRows.map((row, index) => (
+            <ListRow
+              key={row.label}
+              label={row.label}
+              last={index === supportRows.length - 1}
+              onPress={() => openSelectedSetting(row.label)}
+            />
+          ))}
+        </ListGroup>
+      </View>
+
+      <DangerButton label='Sign out' onPress={signOut} style={styles.signOut} />
+      <Text style={styles.version}>ember 0.4.0 · Phoenix Soteria LLC</Text>
+    </Screen>
   );
 }
 
-const styles = (theme: any) => StyleSheet.create({
-    safeArea: {
-      flex: 1,
-      backgroundColor: theme.colors.background,
+const getStyles = (theme: any) =>
+  StyleSheet.create({
+    content: { paddingTop: 16, gap: 16 },
+    centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
+    status: {
+      fontFamily: theme.font.family.body,
+      fontSize: 14,
+      color: theme.colors.subtext,
     },
-    container: {
-      flex: 1,
-      padding: theme.spacing.lg,
-      justifyContent: 'center',
-      paddingTop: theme.spacing.xl,
-      backgroundColor: theme.colors.background,
+    errorText: {
+      fontFamily: theme.font.family.body,
+      fontSize: 14,
+      color: theme.colors.danger,
+      textAlign: 'center',
     },
-    title: {
-      fontSize: theme.font.title,
-      fontWeight: "700",
-      marginBottom: theme.spacing.sm,
-    },
+    retry: { alignSelf: 'stretch' },
     profileCard: {
-      padding: theme.spacing.xl,
-      backgroundColor: theme.colors.primary,
-      borderRadius: theme.radius.lg,
-      marginBottom: theme.spacing.md,
+      padding: 18,
+      borderRadius: 20,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: theme.spacing.lg
+      gap: 15,
     },
-    profileTitle: {
-      fontSize: theme.font.subtitle,
-      fontWeight: "700",
-      color: theme.colors.background,
+    profileBody: { flex: 1, gap: 2 },
+    profileName: {
+      fontFamily: theme.font.family.displayBold,
+      fontSize: 17,
+      color: '#1B1310',
     },
-    profileSubtitle: {
-      color: theme.colors.background,
+    profileMeta: {
+      fontFamily: theme.font.family.bodyMedium,
+      fontSize: 12.5,
+      color: 'rgba(27,19,16,0.7)',
     },
-    row: {
-      paddingVertical: theme.spacing.md,
-      borderBottomWidth: 1,
-      borderColor: theme.colors.border,
+    group: { gap: 8 },
+    signOut: { marginTop: 2 },
+    version: {
+      textAlign: 'center',
+      fontFamily: theme.font.family.mono,
+      fontSize: 11,
+      color: theme.colors.muted,
     },
-    rowText: {
-      fontSize: theme.font.body,
-      color: theme.colors.text,
-    }
   });
