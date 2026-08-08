@@ -382,12 +382,13 @@ const getStyles = (theme: any) =>
       fontWeight: theme.font.weight.semibold,
       color: theme.colors.primary,
     },
+    // No `flex: 0` here: React Native reads that as flexBasis auto, but on web
+    // it becomes `flex: 0 1 0%` and the 0% basis overrides the width, so the
+    // columns collapse to nothing. Widths alone behave the same on both.
     inputGroup: {
-      flex: 0,
       width: 100,
     },
     setGroup: {
-      flex: 0,
       width: 40,
     },
     inputLabel: {
