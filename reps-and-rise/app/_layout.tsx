@@ -1,22 +1,32 @@
 import { GluestackUIProvider } from '@/components/ui/gluestack-ui-provider';
 import '@/global.css';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import {
+  Barlow_400Regular,
+  Barlow_500Medium,
+  Barlow_600SemiBold,
+  Barlow_700Bold,
+} from '@expo-google-fonts/barlow';
+import {
+  SpaceGrotesk_400Regular,
+  SpaceGrotesk_500Medium,
+  SpaceGrotesk_600SemiBold,
+  SpaceGrotesk_700Bold,
+} from '@expo-google-fonts/space-grotesk';
+import { SpaceMono_400Regular, SpaceMono_700Bold } from '@expo-google-fonts/space-mono';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
-import { DarkTheme, DefaultTheme } from '@/theme/DarkTheme';
 import { StatusBar } from 'expo-status-bar';
-import { useThemeMode } from '@/theme/ThemeContext';
 
-import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider } from '@/context/auth-provider';
 import { UserProvider } from '@/context/user-provider';
 import { ActivityProvider } from '@/context/activity-provider';
-import { ThemeProvider } from '@/theme/ThemeContext';
-import * as Notifications from "expo-notifications"
-import { PostHogProvider } from 'posthog-react-native'
+import { ThemeProvider, useThemeMode } from '@/theme/ThemeContext';
+import * as Notifications from 'expo-notifications';
+import { PostHogProvider } from 'posthog-react-native';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -33,7 +43,19 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    // Space Grotesk — headings and buttons
+    SpaceGrotesk_400Regular,
+    SpaceGrotesk_500Medium,
+    SpaceGrotesk_600SemiBold,
+    SpaceGrotesk_700Bold,
+    // Barlow — body copy, labels, helper text
+    Barlow_400Regular,
+    Barlow_500Medium,
+    Barlow_600SemiBold,
+    Barlow_700Bold,
+    // Space Mono — all numbers
+    SpaceMono_400Regular,
+    SpaceMono_700Bold,
     ...FontAwesome.font,
   });
 
@@ -80,50 +102,27 @@ export default function RootLayout() {
 }
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
   const { theme, mode } = useThemeMode();
 
   return (
     <GluestackUIProvider>
-      <StatusBar style={mode === 'dark' ? 'light' : 'dark'} backgroundColor={theme.colors.background} />
-        <Stack screenOptions={{ headerShown: false, gestureEnabled: false }}>
-          <Stack.Screen name='(protected)' />
-          <Stack.Screen name='welcome' />
-          <Stack.Screen
-            name='sign-up'
-            options={{
-              presentation: 'modal',
-              headerShown: true,
-              headerTitle: 'Sign Up',
-              headerStyle: {
-                backgroundColor:
-                  colorScheme === 'dark'
-                    ? DarkTheme.colors.background
-                    : DefaultTheme.colors.background,
-              },
-              headerTintColor:
-                colorScheme === 'dark' ? DarkTheme.colors.text : DefaultTheme.colors.text,
-              gestureEnabled: true,
-            }}
-          />
-          <Stack.Screen
-            name='sign-in'
-            options={{
-              presentation: 'modal',
-              headerShown: true,
-              headerTitle: 'Sign In',
-              headerStyle: {
-                backgroundColor:
-                  colorScheme === 'dark'
-                    ? DarkTheme.colors.background
-                    : DefaultTheme.colors.background,
-              },
-              headerTintColor:
-                colorScheme === 'dark' ? DarkTheme.colors.text : DefaultTheme.colors.text,
-              gestureEnabled: true,
-            }}
-          />
-        </Stack>
+      {/* No backgroundColor: it is a no-op under Android edge-to-edge and warns. */}
+      <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          gestureEnabled: false,
+          contentStyle: { backgroundColor: theme.colors.background },
+        }}
+      >
+        <Stack.Screen name='(protected)' />
+        <Stack.Screen name='welcome' />
+        {/* The auth screens carry their own back chevron and heading, so no native header. */}
+        <Stack.Screen name='sign-up' options={{ presentation: 'modal', gestureEnabled: true }} />
+        <Stack.Screen name='sign-in' options={{ presentation: 'modal', gestureEnabled: true }} />
+        <Stack.Screen name='verify-email' options={{ gestureEnabled: true }} />
+        <Stack.Screen name='forgot-password' options={{ gestureEnabled: true }} />
+      </Stack>
     </GluestackUIProvider>
   );
 }

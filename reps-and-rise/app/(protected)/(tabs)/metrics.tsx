@@ -1,158 +1,200 @@
-import { SafeAreaView, View, Text, StyleSheet } from 'react-native';
-import { Card } from '@/components/Card';
-import { SectionHeader } from '@/components/SectionHeader';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Screen } from '@/components/Screen';
+import { ScreenTitle, SectionLabel } from '@/components/ui-ember';
+import { useWorkoutStore } from '@/store/globalStore';
 import { useThemeMode } from '@/theme/ThemeContext';
-import { useCallback } from 'react';
+import { currentWeek, formatNumber, weeklyMetrics, workoutStreak } from '@/utils/workoutStats';
 import { useFocusEffect } from '@react-navigation/native';
 import { usePostHog } from 'posthog-react-native';
+import { useCallback, useMemo } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
-export default function TabOneScreen() {
+/** Speculative analytics are marked, not hidden behind an overlay. */
+const IN_THE_WORKS = [
+  { title: 'Strength trend', note: 'Estimated 1RM per lift, month over month' },
+  { title: 'Muscle balance', note: 'Which groups you are under-training' },
+  { title: 'Consistency score', note: 'Sessions against your own baseline' },
+];
+
+export default function MetricsScreen() {
   const posthog = usePostHog();
   const { theme } = useThemeMode();
   const styles = getStyles(theme);
 
+  const fetchWorkouts = useWorkoutStore(state => state.fetchWorkouts);
+  const workouts = useWorkoutStore(state => state.workouts);
+
   useFocusEffect(
     useCallback(() => {
       posthog.capture('screen_view', { screen: 'metrics_tab', section: 'tab' });
-    }, [posthog])
+      fetchWorkouts();
+    }, [posthog, fetchWorkouts])
   );
 
+  const week = useMemo(() => currentWeek(workouts), [workouts]);
+  const { sessions, volume } = weeklyMetrics(workouts);
+  const streak = workoutStreak(workouts);
+  const peak = Math.max(...week.map(day => day.volume), 0);
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-      <SectionHeader title='Your Metrics' />
-      
-      <View style={styles.overlayBanner}>
-        <Text style={styles.overlayBannerTitle}>Coming Soon</Text>
-        <Text style={styles.overlayBannerText}>Full metrics dashboard is in progress; stay tuned for analytics and history.</Text>
+    <Screen edges={['top']} pad={20} extraBottom={20} scroll contentStyle={styles.content}>
+      <ScreenTitle>Metrics</ScreenTitle>
+
+      <View style={styles.volumeCard}>
+        <View style={styles.volumeHead}>
+          <SectionLabel>Volume this week</SectionLabel>
+          <Text style={styles.volumeUnit}>lb lifted</Text>
+        </View>
+        <Text style={styles.volumeValue}>{formatNumber(volume)}</Text>
+
+        <View style={styles.chart}>
+          {week.map(day => (
+            <View key={day.key} style={styles.barColumn}>
+              <View
+                style={[
+                  styles.bar,
+                  {
+                    height: day.volume && peak ? Math.max(9, (day.volume / peak) * 58) : 4,
+                    backgroundColor: day.volume
+                      ? day.isToday
+                        ? theme.colors.accent
+                        : theme.colors.primary
+                      : theme.colors.hairline,
+                  },
+                ]}
+              />
+              <Text style={styles.barLabel}>{day.dow}</Text>
+            </View>
+          ))}
+        </View>
       </View>
 
-      <LinearGradient colors={[theme.colors.secondary, theme.colors.primary]} start={{x:0, y:0}} end={{x:1, y:1}} style={styles.bigCard}>
-            <Text style={styles.bigNumber}>+10%</Text>
-            <Text style={styles.subtitle}>Strength</Text>
-            <Text style={styles.description}>Amazing progress this month. Keep pushing forward</Text>
-        </LinearGradient>
-        
+      <View style={styles.tileRow}>
+        <View style={styles.tile}>
+          <Text style={styles.tileValue}>{streak}</Text>
+          <Text style={styles.tileLabel}>Day streak</Text>
+        </View>
+        <View style={styles.tile}>
+          <Text style={styles.tileValue}>{sessions}</Text>
+          <Text style={styles.tileLabel}>Sessions this week</Text>
+        </View>
+      </View>
 
-      <Card style={styles.tinyCard}>
-        <Text style={styles.subtext}>Strength</Text>
-        <Text style={styles.value}>+10%</Text>
-        <Text style={styles.subtext}>Compared to last month</Text>  
-      </Card>
+      <View style={styles.divider}>
+        <SectionLabel>In the works</SectionLabel>
+        <View style={styles.dividerLine} />
+      </View>
 
-      <Card style={styles.tinyCard}>
-        <Text style={styles.subtext}>Workout Streak</Text>
-        <Text style={styles.value}>5 Days</Text>
-        <Text style={styles.subtext}>Keep it up!</Text>  
-      </Card>
-
-      <Card style={styles.tinyCard}>
-        <Text style={styles.subtext}>Weekly Goal</Text>
-        <Text style={styles.value}>82%</Text>
-        <Text style={styles.subtext}>Great progress!</Text>  
-      </Card>
-
-    </View>
-  </SafeAreaView>
+      {IN_THE_WORKS.map(item => (
+        <View key={item.title} style={styles.soonRow}>
+          <View style={styles.soonThumb} />
+          <View style={styles.soonBody}>
+            <Text style={styles.soonTitle}>{item.title}</Text>
+            <Text style={styles.soonNote}>{item.note}</Text>
+          </View>
+          <View style={styles.soonBadge}>
+            <Text style={styles.soonBadgeText}>Soon</Text>
+          </View>
+        </View>
+      ))}
+    </Screen>
   );
 }
 
-
-
-const getStyles = (theme: any) => StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  container: {
-    flex: 1,
-    padding: theme.spacing.lg,
-    justifyContent: 'center',
-    paddingTop: theme.spacing.xl,
-    backgroundColor: theme.colors.background,
-  },
-  bigNumber: {
-    fontSize: 48,
-    fontWeight: "700",
-    color: theme.colors.border,
-  },
-  bigCard: {
-    padding: theme.spacing.xl,
-    backgroundColor: theme.colors.primary,
-        borderRadius: theme.radius.lg,
-        marginBottom: theme.spacing.md
-  },
-  subtitle: {
-    fontSize: theme.font.subtitle,
-    marginTop: theme.spacing.sm,
-    color: theme.colors.background,
-  },
-    description: {
-      color: theme.colors.border,
-      marginTop: theme.spacing.sm,
+const getStyles = (theme: any) =>
+  StyleSheet.create({
+    content: { paddingTop: 16, gap: 14 },
+    volumeCard: {
+      padding: 20,
+      borderRadius: 20,
+      backgroundColor: theme.colors.card,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      gap: 14,
     },
-    label: {
-        fontSize: theme.font.subtitle,
-        fontWeight: 600,
+    volumeHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+    volumeUnit: {
+      fontFamily: theme.font.family.bodyMedium,
+      fontSize: 11.5,
+      color: theme.colors.secondary,
     },
-    value: {
-        fontSize: theme.font.subtitle,
-        fontWeight: 700,
-        marginTop: theme.spacing.xs,
+    volumeValue: {
+      fontFamily: theme.font.family.monoBold,
+      fontSize: 40,
+      lineHeight: 44,
+      color: theme.colors.text,
     },
-    subtext: {
-        color: theme.colors.subtext,
-        marginTop: theme.spacing.xs,
+    chart: { flexDirection: 'row', alignItems: 'flex-end', gap: 7, height: 74 },
+    barColumn: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: 6 },
+    bar: { width: '100%', borderRadius: 5 },
+    barLabel: {
+      fontFamily: theme.font.family.bodyMedium,
+      fontSize: 9.5,
+      color: theme.colors.muted,
     },
-  overlayBanner: {
-    position: 'absolute',
-    top: -100,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 999,
-    padding: theme.spacing.lg,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  overlayBannerTitle: {
-    fontSize: theme.font.title,
-    fontWeight: 'bold',
-    color: 'white',
-    marginBottom: theme.spacing.xs,
-  },
-  overlayBannerText: {
-    color: 'white',
-    textAlign: 'center',
-    fontSize: theme.font.body,
-    maxWidth: '80%',
-  },
-  comingSoonTitle: {
-    fontSize: theme.font.subtitle,
-    fontWeight: '700',
-    marginBottom: theme.spacing.xs,
-    color: theme.colors.primary,
-  },
-  comingSoonText: {
-    color: theme.colors.text,
-    fontSize: theme.font.body,
-  },
-  tinyCard: {
-    backgroundColor: theme.colors.card,
-    padding: theme.spacing.md,
-    borderRadius: theme.radius.lg,
-    marginBottom: theme.spacing.md,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  separator: {
-    marginVertical: 30,
-    height: 1,
-    width: '80%',
-  },
-  
-});
+    tileRow: { flexDirection: 'row', gap: 11 },
+    tile: {
+      flex: 1,
+      padding: 16,
+      borderRadius: 17,
+      backgroundColor: theme.colors.card,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      gap: 5,
+    },
+    tileValue: {
+      fontFamily: theme.font.family.monoBold,
+      fontSize: 26,
+      lineHeight: 28,
+      color: theme.colors.secondary,
+    },
+    tileLabel: {
+      fontFamily: theme.font.family.bodyMedium,
+      fontSize: 11.5,
+      color: theme.colors.subtext,
+    },
+    divider: { marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 10 },
+    dividerLine: { flex: 1, height: 1, backgroundColor: theme.colors.border },
+    soonRow: {
+      padding: 16,
+      borderRadius: 17,
+      backgroundColor: theme.colors.surfaceSunken,
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: theme.colors.border,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+    },
+    soonThumb: {
+      width: 56,
+      height: 44,
+      borderRadius: 9,
+      backgroundColor: theme.colors.iconBackground,
+    },
+    soonBody: { flex: 1, gap: 3 },
+    soonTitle: {
+      fontFamily: theme.font.family.display,
+      fontSize: 14,
+      color: theme.colors.text,
+    },
+    soonNote: {
+      fontFamily: theme.font.family.body,
+      fontSize: 11.5,
+      lineHeight: 16,
+      color: theme.colors.muted,
+    },
+    soonBadge: {
+      paddingHorizontal: 9,
+      paddingVertical: 5,
+      borderRadius: theme.radius.pill,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    soonBadgeText: {
+      fontFamily: theme.font.family.bodySemibold,
+      fontSize: 9.5,
+      letterSpacing: 0.8,
+      textTransform: 'uppercase',
+      color: theme.colors.subtext,
+    },
+  });

@@ -1,17 +1,17 @@
 {
   "expo": {
-    "name": "expo-supabase-auth-starter",
-    "slug": "expo-supabase-auth-starter",
+    "name": "ember",
+    "slug": "ember",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "expo-supabase-auth-starter",
+    "scheme": "ember",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#141210"
     },
     "ios": {
       "supportsTablet": true,
@@ -23,7 +23,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#141210"
       },
       "edgeToEdgeEnabled": true,
       "permissions": [

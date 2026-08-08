@@ -1,34 +1,24 @@
-import { View, Text, TouchableOpacity, TextInput, FlatList } from "react-native";
-import { useCallback, useEffect, useState } from "react";
-import { router, useLocalSearchParams } from "expo-router";
-import { supabase } from "@/lib/supabase";
-import { usePostHog } from 'posthog-react-native';
+import { Screen } from '@/components/Screen';
+import { BackButton } from '@/components/ui-ember';
+import { supabase } from '@/lib/supabase';
+import { useThemeMode } from '@/theme/ThemeContext';
 import { useFocusEffect } from '@react-navigation/native';
+import { router } from 'expo-router';
+import { usePostHog } from 'posthog-react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 interface ActivityItem {
   id: string;
   name: string;
 }
 
-// const ACTIVITIES = [
-//   "Bench Press",
-//   "Squat",
-//   "Deadlift",
-//   "Overhead Press",
-//   "Barbell Row",
-//   "Pull-Up",
-//   "Lat Pulldown",
-//   "RDL",
-//   "Hip Thrust",
-//   "Leg Press",
-//   "Bicep Curl",
-//   "Tricep Extension",
-// ];
-
 export default function SelectActivity() {
   const posthog = usePostHog();
+  const { theme } = useThemeMode();
+  const styles = getStyles(theme);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState('');
 
   useFocusEffect(
     useCallback(() => {
@@ -38,19 +28,20 @@ export default function SelectActivity() {
 
   useEffect(() => {
     const fetchActivities = async () => {
-      const { data, error } = await supabase.from("exercises").select("id, name");
-      if (!error) setActivities(data);
+      const { data, error } = await supabase.from('exercises').select('id, name');
+      if (!error && data) setActivities(data as ActivityItem[]);
     };
-    fetchActivities();  
+    fetchActivities();
   }, []);
 
-  const filtered = activities.filter((a) =>
-    a.name.toLowerCase().includes(query.toLowerCase())
+  const filtered = activities.filter(activity =>
+    activity.name.toLowerCase().includes(query.toLowerCase())
   );
 
-//   const filtered = ACTIVITIES.filter((a) =>
-//     a.toLowerCase().includes(query.toLowerCase())
-//   );
+  const goBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
+  };
 
   const handleSelect = (activity: ActivityItem) => {
     posthog.capture('exercise_selected', {
@@ -58,50 +49,96 @@ export default function SelectActivity() {
       exercise_id: activity.id,
       exercise_name: activity.name,
     });
-    router.back(); // go back to the modal
+    router.back(); // go back to the caller
     setTimeout(() => {
-        router.setParams(
-            {
-                activity_id: activity.id, 
-                activity_name: activity.name
-            }); // send the selected activity back
+      // send the selected activity back
+      router.setParams({ activity_id: activity.id, activity_name: activity.name });
     }, 0); // slight delay to ensure we're back before sending data
   };
 
   return (
-    <View style={{ flex: 1, padding: 20, gap: 12 }}>
-      <Text style={{ fontSize: 24, fontWeight: "600" }}>Select Activity</Text>
+    <Screen>
+      <View style={styles.header}>
+        <BackButton onPress={goBack} />
+        <Text style={styles.headerTitle}>Select exercise</Text>
+        <View style={styles.headerSpacer} />
+      </View>
 
-      <TextInput
-        placeholder="Search..."
-        value={query}
-        onChangeText={(text) => {
-          setQuery(text);
-          posthog.capture('button_click', { screen: 'select_activity_modal', button: 'search_input_change', query_length: text.length });
-        }}
-        style={{
-          borderWidth: 1,
-          borderRadius: 8,
-          padding: 10,
-        }}
-      />
+      <View style={styles.body}>
+        <TextInput
+          placeholder='Search exercises…'
+          placeholderTextColor={theme.colors.placeholder}
+          value={query}
+          onChangeText={setQuery}
+          style={styles.search}
+          autoCorrect={false}
+        />
 
-      <FlatList
-        data={filtered}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            onPress={() => handleSelect(item)}
-            style={{
-              padding: 14,
-              borderBottomWidth: 1,
-              borderColor: "#ddd",
-            }}
-          >
-            <Text style={{ fontSize: 18 }}>{item.name}</Text>
-          </TouchableOpacity>
-        )}
-      />
-    </View>
+        <FlatList
+          data={filtered}
+          keyExtractor={item => item.id}
+          keyboardShouldPersistTaps='handled'
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={<Text style={styles.empty}>No exercises found.</Text>}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              onPress={() => handleSelect(item)}
+              style={styles.row}
+              accessibilityRole='button'
+            >
+              <Text style={styles.rowText}>{item.name}</Text>
+            </TouchableOpacity>
+          )}
+        />
+      </View>
+    </Screen>
   );
 }
+
+const getStyles = (theme: any) =>
+  StyleSheet.create({
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 13,
+      paddingHorizontal: 20,
+      paddingTop: 4,
+      paddingBottom: 12,
+    },
+    headerTitle: {
+      flex: 1,
+      fontFamily: theme.font.family.display,
+      fontSize: 18,
+      letterSpacing: -0.36,
+      color: theme.colors.text,
+    },
+    headerSpacer: { width: 38 },
+    body: { flex: 1, paddingHorizontal: 20, gap: 12 },
+    search: {
+      paddingHorizontal: 14,
+      paddingVertical: 13,
+      borderRadius: 13,
+      backgroundColor: theme.colors.card,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      color: theme.colors.text,
+      fontFamily: theme.font.family.body,
+      fontSize: 15,
+    },
+    row: {
+      paddingVertical: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.hairline,
+    },
+    rowText: {
+      fontFamily: theme.font.family.bodyMedium,
+      fontSize: 15,
+      color: theme.colors.text,
+    },
+    empty: {
+      paddingVertical: 20,
+      fontFamily: theme.font.family.body,
+      fontSize: 13,
+      color: theme.colors.subtext,
+    },
+  });

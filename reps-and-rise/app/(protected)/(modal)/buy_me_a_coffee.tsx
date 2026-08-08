@@ -1,9 +1,9 @@
-import { SectionHeader } from '@/components/SectionHeader';
+import { Screen } from '@/components/Screen';
+import { BackButton } from '@/components/ui-ember';
 import { openDonationCheckout } from '@/lib/donations';
 import { useThemeMode } from '@/theme/ThemeContext';
 import { useCallback, useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { usePostHog } from 'posthog-react-native';
@@ -82,7 +82,10 @@ export default function BuyMeACoffeeModal() {
       }
 
       if (result.reason === 'invalid-url') {
-        Alert.alert('Invalid Stripe URL', 'Please verify EXPO_PUBLIC_STRIPE_DONATION_URL in your env file.');
+        Alert.alert(
+          'Invalid Stripe URL',
+          'Please verify EXPO_PUBLIC_STRIPE_DONATION_URL in your env file.'
+        );
         return;
       }
 
@@ -92,38 +95,44 @@ export default function BuyMeACoffeeModal() {
     }
   };
 
+  const goBack = () => {
+    posthog.capture('button_click', { screen: 'buy_me_a_coffee_modal', button: 'back' });
+    if (router.canGoBack()) router.back();
+    else router.replace('/settings');
+  };
+
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <Screen>
+      <View style={styles.header}>
+        <BackButton onPress={goBack} />
+        <Text style={styles.headerTitle}>Buy me a coffee</Text>
+        <View style={styles.headerSpacer} />
+      </View>
       <View style={styles.container}>
-        <TouchableOpacity
-          onPress={() => {
-            posthog.capture('button_click', { screen: 'buy_me_a_coffee_modal', button: 'back' });
-            router.back();
-          }}
-          style={styles.backButtonCircle}
-        >
-          <FontAwesome name="arrow-left" size={18} color={'#fff'} />
-        </TouchableOpacity>
-        <SectionHeader title='Buy Me a Coffee' />
         <Text style={styles.subtitle}>Choose a donation tier to support development.</Text>
 
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
           <View style={styles.messageCard}>
             <Text style={styles.messageText}>
-              We are committed to keeping this app free for everyone. If you enjoy using it, any support is deeply appreciated and helps us keep building new features for the community.
+              We are committed to keeping this app free for everyone. If you enjoy using it, any
+              support is deeply appreciated and helps us keep building new features for the
+              community.
             </Text>
           </View>
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Donation Tiers</Text>
-            {tiers.map((tier) => {
+            {tiers.map(tier => {
               const isSelected = selectedTier.id === tier.id;
               return (
                 <TouchableOpacity
                   key={tier.id}
                   style={[styles.tierRow, isSelected && styles.tierRowSelected]}
                   onPress={() => {
-                    posthog.capture('donation_tier_selected', { tier_id: tier.id, tier_amount: tier.amountLabel });
+                    posthog.capture('donation_tier_selected', {
+                      tier_id: tier.id,
+                      tier_amount: tier.amountLabel,
+                    });
                     setSelectedTier(tier);
                   }}
                   activeOpacity={0.85}
@@ -132,7 +141,9 @@ export default function BuyMeACoffeeModal() {
                     <Text style={styles.tierTitle}>{tier.title}</Text>
                     <Text style={styles.tierDescription}>{tier.description}</Text>
                   </View>
-                  <Text style={[styles.tierAmount, isSelected && styles.tierAmountSelected]}>{tier.amountLabel}</Text>
+                  <Text style={[styles.tierAmount, isSelected && styles.tierAmountSelected]}>
+                    {tier.amountLabel}
+                  </Text>
                 </TouchableOpacity>
               );
             })}
@@ -140,8 +151,13 @@ export default function BuyMeACoffeeModal() {
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Stripe Connection</Text>
-            <Text style={styles.infoText}>This button is already wired for Stripe Checkout. Once configured, it opens your Stripe payment page with the selected tier attached as a query parameter.</Text>
-            <Text style={styles.infoText}>Setup later by adding EXPO_PUBLIC_STRIPE_DONATION_URL in your .env.local file.</Text>
+            <Text style={styles.infoText}>
+              This button is already wired for Stripe Checkout. Once configured, it opens your
+              Stripe payment page with the selected tier attached as a query parameter.
+            </Text>
+            <Text style={styles.infoText}>
+              Setup later by adding EXPO_PUBLIC_STRIPE_DONATION_URL in your .env.local file.
+            </Text>
 
             <TouchableOpacity
               style={[styles.primaryButton, isSubmitting && styles.primaryButtonDisabled]}
@@ -150,31 +166,44 @@ export default function BuyMeACoffeeModal() {
               activeOpacity={0.9}
             >
               <Text style={styles.primaryButtonText}>
-                {isSubmitting ? 'Opening checkout...' : `Donate ${selectedTier.amountLabel} via Stripe`}
+                {isSubmitting
+                  ? 'Opening checkout...'
+                  : `Donate ${selectedTier.amountLabel} via Stripe`}
               </Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
       </View>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const getStyles = (theme: any) =>
   StyleSheet.create({
-    safeArea: {
-      flex: 1,
-      backgroundColor: theme.colors.background,
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 13,
+      paddingHorizontal: 20,
+      paddingTop: 4,
+      paddingBottom: 12,
     },
+    headerTitle: {
+      flex: 1,
+      fontFamily: theme.font.family.display,
+      fontSize: 18,
+      letterSpacing: -0.36,
+      color: theme.colors.text,
+    },
+    headerSpacer: { width: 38 },
     container: {
       flex: 1,
-      backgroundColor: theme.colors.background,
-      paddingHorizontal: theme.spacing.md,
-      paddingTop: theme.spacing.lg,
+      paddingHorizontal: 20,
     },
     subtitle: {
+      fontFamily: theme.font.family.body,
       color: theme.colors.subtext,
-      fontSize: theme.font.small,
+      fontSize: 13,
       marginBottom: theme.spacing.sm,
     },
     scrollView: {
@@ -202,30 +231,15 @@ const getStyles = (theme: any) =>
       paddingVertical: theme.spacing.md,
     },
     messageText: {
-      color: theme.colors.text,
-      fontSize: theme.font.small,
+      fontFamily: theme.font.family.body,
+      color: theme.colors.subtext,
+      fontSize: 13.5,
       lineHeight: 21,
     },
-    backButtonCircle: {
-      position: 'absolute',
-      bottom: theme.spacing.md,
-      left: theme.spacing.md,
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: theme.colors.primary,
-      justifyContent: 'center',
-      alignItems: 'center',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.15,
-      shadowRadius: 3.84,
-      elevation: 4,
-    },
     cardTitle: {
+      fontFamily: theme.font.family.display,
       color: theme.colors.text,
-      fontSize: theme.font.body,
-      fontWeight: '700',
+      fontSize: 15,
       marginBottom: theme.spacing.xs,
     },
     tierRow: {
@@ -238,45 +252,47 @@ const getStyles = (theme: any) =>
       paddingHorizontal: theme.spacing.sm,
       paddingVertical: theme.spacing.sm,
       marginBottom: theme.spacing.xs,
-      backgroundColor: theme.colors.background,
+      backgroundColor: theme.colors.surfaceSunken,
       columnGap: theme.spacing.sm,
     },
     tierRowSelected: {
-      borderColor: theme.colors.primary,
-      backgroundColor: theme.colors.iconBackground,
+      borderColor: theme.colors.accent,
+      backgroundColor: theme.colors.accentSoft,
     },
     tierTextWrap: {
       flex: 1,
       minWidth: 0,
     },
     tierTitle: {
+      fontFamily: theme.font.family.display,
       color: theme.colors.text,
-      fontSize: theme.font.body,
-      fontWeight: '600',
+      fontSize: 15,
     },
     tierDescription: {
+      fontFamily: theme.font.family.body,
       color: theme.colors.subtext,
-      fontSize: theme.font.small,
+      fontSize: 13,
       marginTop: theme.spacing.xs,
     },
     tierAmount: {
+      fontFamily: theme.font.family.monoBold,
       color: theme.colors.text,
-      fontSize: theme.font.subtitle,
-      fontWeight: '700',
+      fontSize: 18,
     },
     tierAmountSelected: {
-      color: theme.colors.primary,
+      color: theme.colors.accent,
     },
     infoText: {
+      fontFamily: theme.font.family.body,
       color: theme.colors.subtext,
-      fontSize: theme.font.small,
+      fontSize: 13,
       lineHeight: 20,
     },
     primaryButton: {
       marginTop: theme.spacing.sm,
-      borderRadius: theme.radius.md,
-      backgroundColor: theme.colors.primary,
-      paddingVertical: theme.spacing.sm,
+      borderRadius: 15,
+      backgroundColor: theme.colors.accent,
+      paddingVertical: 15,
       paddingHorizontal: theme.spacing.md,
       alignItems: 'center',
       justifyContent: 'center',
@@ -285,8 +301,8 @@ const getStyles = (theme: any) =>
       opacity: 0.75,
     },
     primaryButtonText: {
-      color: theme.colors.background,
-      fontSize: theme.font.body,
-      fontWeight: '700',
+      fontFamily: theme.font.family.displayBold,
+      color: theme.colors.onAccent,
+      fontSize: 15.5,
     },
   });
