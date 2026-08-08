@@ -63,9 +63,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
       const sessionResult = await supabase.auth.getSession();
       const currentSession = sessionResult?.data?.session;
+
+      // Only treat this as an anonymous->registered upgrade when we have an
+      // active anonymous session. Previously we relied on `isGuest` which
+      // could be true even when the local session expired, causing
+      // `updateUser` to be called without an auth session and producing
+      // "Auth session missing!" errors from supabase-js.
       const isUpgradingGuest = Boolean(
-        isGuest ||
-        (currentSession && !currentSession.user?.email)
+        currentSession && !currentSession.user?.email
       );
 
       let data: any;
@@ -163,9 +168,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
         console.log('No session returned from sign up - user may need to verify email');
         // Some Supabase configurations require email verification
         if (data.user && !data.session) {
-          throw new Error(
-            'Account created successfully. Please check your email to verify your account before signing in.'
+          // Account was created but no session was returned (email verification required)
+          // Treat this as a successful signup rather than an error so the UI can
+          // inform the user and redirect them to the sign-in page.
+          console.log(
+            'Account created successfully (email verification may be required).'
           );
+          return;
         }
       }
     } catch (error) {
@@ -260,6 +269,30 @@ export function AuthProvider({ children }: PropsWithChildren) {
     try {
       console.log('Requesting password reset for:', email);
 
+      const cooldownSeconds = 300;
+      const { data: cooldownData, error: cooldownError } = await supabase
+        .rpc('can_request_password_reset', {
+          p_email: email,
+          p_cooldown_seconds: cooldownSeconds,
+        });
+
+      if (cooldownError) {
+        console.error('Error checking password reset cooldown:', cooldownError);
+        throw new Error(
+          'Unable to verify password reset cooldown. Please try again in a few minutes.'
+        );
+      }
+
+      const cooldownRow = Array.isArray(cooldownData) ? cooldownData[0] : cooldownData;
+      if (!cooldownRow?.allowed) {
+        const retrySeconds = cooldownRow?.retry_seconds ?? cooldownSeconds;
+        throw new Error(
+          `You can request another reset email in ${retrySeconds} second${
+            retrySeconds === 1 ? '' : 's'
+          }.`
+        );
+      }
+
       const redirectTo = process.env.EXPO_PUBLIC_SUPABASE_PASSWORD_RESET_REDIRECT_URL;
       const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: redirectTo || undefined,
@@ -273,6 +306,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
         if (error.message?.includes('Network request failed')) {
           throw new Error(
             'Network connection failed. Please check your internet connection and try again.'
+          );
+        } else if (error.message?.includes('email rate limit exceeded')) {
+          throw new Error(
+            'Too many password reset attempts. Please wait a few minutes before trying again.'
           );
         }
         throw new Error(error.message || 'Unable to send password reset instructions. Please try again.');

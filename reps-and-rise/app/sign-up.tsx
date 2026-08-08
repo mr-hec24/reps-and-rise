@@ -12,6 +12,7 @@ import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useAuth } from '@/context/auth-provider';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState } from 'react';
 import { Keyboard, SafeAreaView, TouchableWithoutFeedback } from 'react-native';
 
@@ -68,6 +69,14 @@ export default function SignUp() {
     setIsLoading(true);
     try {
       await signUp(email, password, firstName, lastName);
+      // On successful signup (including cases where email verification is required),
+      // flag sign-in to show a verification notice and navigate the user back to sign-in.
+      try {
+        await AsyncStorage.setItem('signupShowVerify', '1');
+      } catch (e) {
+        console.warn('Unable to set signup flag in storage', e);
+      }
+      router.push('/sign-in');
     } catch (error) {
       console.error('Error signing up:', error);
 

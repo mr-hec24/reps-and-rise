@@ -20,6 +20,7 @@ export default function ForgotPassword() {
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [cooldown, setCooldown] = useState(0);
 
   const validateForm = () => {
     if (!email.trim()) {
@@ -40,11 +41,27 @@ export default function ForgotPassword() {
     if (!validateForm()) {
       return;
     }
+    // Prevent repeat sends from the client too quickly
+    if (cooldown > 0) {
+      setErrorMessage(`Please wait ${cooldown} seconds before requesting another link.`);
+      return;
+    }
 
     setIsLoading(true);
     try {
       await resetPassword(email);
       setMessage('Password reset instructions have been sent to your email.');
+      // Start a short client-side cooldown to avoid rapid retries
+      setCooldown(60);
+      const interval = setInterval(() => {
+        setCooldown(prev => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
     } catch (error) {
       console.error('Error sending password reset email:', error);
       if (error instanceof Error) {
@@ -114,6 +131,11 @@ export default function ForgotPassword() {
             >
               <ButtonText>{isLoading ? 'Sending...' : 'Send Reset Link'}</ButtonText>
             </Button>
+            {cooldown > 0 ? (
+              <Text className='text-muted-600 text-center text-sm mt-2'>
+                You can request another link in {cooldown} second{cooldown === 1 ? '' : 's'}.
+              </Text>
+            ) : null}
             <Button
               size='md'
               variant='outline'
